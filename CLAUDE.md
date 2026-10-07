@@ -6,7 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TinyNotes is a small demo notes app: email/password auth, rich-text notes with autosave, and revocable public share links. The repo is currently the stock `create-next-app` scaffold (Next.js 16.1.1, React 19.2.3, Tailwind 4). The app itself is not built yet.
 
-**`SPEC.md` is the source of truth.** Read the relevant sections before implementing anything. It fixes routes, SQL schemas, function signatures, error codes, UI copy, styling classes and the milestone order (M0–M6, one PR each, §15). Prefer the simplest solution, and build nothing from its *Out of scope* list (§2). That rules out a `/settings` route, password reset or any email, and dark mode (the theme is light-only with the aqua palette in §11). Don't add an ORM, query builder, validation library or UI kit, and pin the dependency versions in §4 exactly.
+**`SPEC.md` is the source of truth.** Read the relevant sections before implementing anything. It fixes routes, SQL schemas, function signatures, error codes, UI copy, styling classes and the milestone order (M0–M6, one PR each, §15). Prefer the simplest solution, and build nothing from its _Out of scope_ list (§2). That rules out a `/settings` route, password reset or any email, and dark mode (the theme is light-only with the aqua palette in §11). Don't add an ORM, query builder, validation library or UI kit, and pin the dependency versions in §4 exactly.
+
+Whenever working with any third-party library or something similar, you MUST look up the official documentation to ensure that you're working with up-to-date information.
+Use the DocsExplorer subagent for efficient documentation lookup.
 
 ## Commands
 
