@@ -7,6 +7,8 @@
     "build": "bun --bun next build",
     "start": "bun --bun next start",
     "lint": "eslint",
+    "test": "bun --bun vitest run",
+    "test:watch": "bun --bun vitest",
     "format": "oxfmt"
   },
   "dependencies": {
@@ -25,14 +27,16 @@
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "0.5.20",
     "@types/bun": "^1.4.2",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "oxfmt": "^0.72.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
   },
   "ignoreScripts": [
     "sharp",

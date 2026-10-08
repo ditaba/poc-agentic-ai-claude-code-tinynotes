@@ -1,16 +1,13 @@
 'use client';
 
 import { useId, useRef, useState, useTransition, type FocusEvent } from 'react';
-import { disableSharing, enableSharing } from '@/app/notes/actions';
+import { copyToClipboard, updateSharing, type CopyStatus } from '@/components/sharing';
 import { buttonStyles, inputStyles, labelStyles } from '@/components/styles';
 import { Switch } from '@/components/switch';
 
 const DISABLE_CONFIRM =
   'Anyone using this link will lose access. Turning sharing back on creates a new link.';
-const NETWORK_ERROR = "Couldn't update sharing. Check your connection and try again.";
 const COPIED_RESET_MS = 2000;
-
-type CopyStatus = 'idle' | 'copied' | 'manual';
 
 type SharePanelProps = {
   noteId: string;
@@ -22,7 +19,7 @@ type SharePanelProps = {
 export function SharePanel({ noteId, initialShareUrl }: SharePanelProps) {
   const [shareUrl, setShareUrl] = useState(initialShareUrl);
   const [error, setError] = useState<string | null>(null);
-  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
+  const [copyStatus, setCopyStatus] = useState<CopyStatus | 'idle'>('idle');
   const [isPending, startTransition] = useTransition();
   const linkInputRef = useRef<HTMLInputElement>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -36,34 +33,22 @@ export function SharePanel({ noteId, initialShareUrl }: SharePanelProps) {
     setCopyStatus('idle');
 
     startTransition(async () => {
-      try {
-        if (isShared) {
-          const result = await disableSharing(noteId);
-          if (result.ok) setShareUrl(null);
-          else setError(result.message);
-        } else {
-          const result = await enableSharing(noteId);
-          if (result.ok) setShareUrl(result.data.shareUrl);
-          else setError(result.message);
-        }
-      } catch {
-        setError(NETWORK_ERROR);
-      }
+      const update = await updateSharing(noteId, !isShared);
+      if (update.ok) setShareUrl(update.shareUrl);
+      else setError(update.error);
     });
   }
 
   async function handleCopy() {
     if (!shareUrl) return;
     clearTimeout(copiedTimer.current);
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopyStatus('copied');
+    const status = await copyToClipboard(shareUrl);
+    setCopyStatus(status);
+    if (status === 'copied') {
       copiedTimer.current = setTimeout(() => setCopyStatus('idle'), COPIED_RESET_MS);
-    } catch {
-      // The clipboard can be unavailable (e.g. not a secure context). Select the
-      // link so it can be copied by hand.
+    } else {
+      // Select the link so it can be copied by hand.
       linkInputRef.current?.select();
-      setCopyStatus('manual');
     }
   }
 
