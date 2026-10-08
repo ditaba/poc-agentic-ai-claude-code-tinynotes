@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "TinyNotes", template: "%s · TinyNotes" },
+  title: { default: "NextNotes", template: "%s · NextNotes" },
   description: "Simple rich-text notes with autosave and shareable links.",
 };
 

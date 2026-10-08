@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, type ComponentProps } from "react";
+import { inputStyles, labelStyles } from "@/components/styles";
 import { SubmitButton } from "@/components/submit-button";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-messages";
+import { readField } from "@/lib/form-data";
 
 export type AuthMode = "sign-in" | "sign-up";
 
@@ -21,11 +23,6 @@ type Credentials = {
 };
 
 const initialState: FormState = { error: null, name: "", email: "" };
-
-function readField(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : "";
-}
 
 // Returns a user-facing error message, or null on success.
 async function authenticate(mode: AuthMode, { name, email, password }: Credentials) {
@@ -63,7 +60,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       return { error, name, email };
     }
 
-    router.replace("/notes");
+    router.replace("/dashboard");
     // Re-renders the root layout, so the header shows the signed-in user.
     router.refresh();
     return { error: null, name, email };
@@ -126,16 +123,10 @@ function Field({ label, name, hint, ...inputProps }: FieldProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={name} className="text-sm font-medium text-aqua-950">
+      <label htmlFor={name} className={labelStyles}>
         {label}
       </label>
-      <input
-        id={name}
-        name={name}
-        aria-describedby={hintId}
-        className="rounded-lg border border-aqua-200 bg-white px-3 py-2 text-slate-800 focus-visible:border-aqua-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua-400 focus-visible:ring-offset-2"
-        {...inputProps}
-      />
+      <input id={name} name={name} aria-describedby={hintId} className={inputStyles} {...inputProps} />
       {hint && (
         <p id={hintId} className="text-sm text-slate-500">
           {hint}

@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
+import { buttonStyles, focusRing } from "@/components/styles";
 import { getCurrentUser } from "@/lib/session";
-
-const focusRing =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua-400 focus-visible:ring-offset-2";
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
@@ -14,8 +12,12 @@ export async function SiteHeader() {
         aria-label="Main"
         className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-3"
       >
-        <Link href="/" className={`rounded text-lg font-semibold text-aqua-950 ${focusRing}`}>
-          TinyNotes
+        {/* Signed-out visitors get sent to /auth by the dashboard's own check. */}
+        <Link
+          href="/dashboard"
+          className={`rounded text-lg font-semibold tracking-tight text-aqua-950 ${focusRing}`}
+        >
+          NextNotes
         </Link>
 
         {user ? (
@@ -24,10 +26,7 @@ export async function SiteHeader() {
             <SignOutButton />
           </div>
         ) : (
-          <Link
-            href="/auth"
-            className={`rounded-lg border border-aqua-200 px-4 py-2 text-sm font-medium text-aqua-800 transition-colors hover:bg-aqua-50 ${focusRing}`}
-          >
+          <Link href="/auth" className={buttonStyles.secondary}>
             Sign in
           </Link>
         )}

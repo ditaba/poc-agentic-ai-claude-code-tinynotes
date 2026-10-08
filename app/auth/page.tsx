@@ -4,23 +4,19 @@ import { redirect } from "next/navigation";
 import { AuthForm, type AuthMode } from "@/components/auth-form";
 import { getCurrentUser } from "@/lib/session";
 
-type AuthPageProps = {
-  searchParams: Promise<{ mode?: string | string[] }>;
-};
-
 // Anything other than ?mode=sign-up shows sign-in.
-async function readMode(searchParams: AuthPageProps["searchParams"]): Promise<AuthMode> {
+async function readMode(searchParams: PageProps<"/auth">["searchParams"]): Promise<AuthMode> {
   const { mode } = await searchParams;
   return mode === "sign-up" ? "sign-up" : "sign-in";
 }
 
-export async function generateMetadata({ searchParams }: AuthPageProps): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: PageProps<"/auth">): Promise<Metadata> {
   const mode = await readMode(searchParams);
   return { title: mode === "sign-up" ? "Sign up" : "Sign in" };
 }
 
-export default async function AuthPage({ searchParams }: AuthPageProps) {
-  if (await getCurrentUser()) redirect("/notes");
+export default async function AuthPage({ searchParams }: PageProps<"/auth">) {
+  if (await getCurrentUser()) redirect("/dashboard");
 
   const mode = await readMode(searchParams);
   const isSignUp = mode === "sign-up";
@@ -32,7 +28,7 @@ export default async function AuthPage({ searchParams }: AuthPageProps) {
           {isSignUp ? "Create your account" : "Sign in"}
         </h1>
         <p className="mt-1 text-slate-500">
-          {isSignUp ? "Start writing notes in seconds." : "Welcome back to TinyNotes."}
+          {isSignUp ? "Start writing notes in seconds." : "Welcome back to NextNotes."}
         </p>
 
         {/* The key resets the form's state when switching modes. */}

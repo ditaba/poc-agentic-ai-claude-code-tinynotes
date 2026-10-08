@@ -1,10 +1,6 @@
 import { requireUser } from "@/lib/session";
 
-export default async function NotePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function NotePage({ params }: PageProps<"/notes/[id]">) {
   await requireUser();
   const { id } = await params;
   return (
