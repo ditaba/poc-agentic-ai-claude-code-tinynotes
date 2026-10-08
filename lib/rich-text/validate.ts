@@ -96,8 +96,16 @@ function rebuildSafe(node: ProseMirrorNode): ProseMirrorNode {
   return node.type.create(safeAttrs(node), children, marks);
 }
 
+// ProseMirror's toJSON() reuses each node's attrs object, which has a null
+// prototype. React can't pass those from Server to Client Components, so the
+// result is copied into plain JSON.
+function toPlainJson(node: ProseMirrorNode): JSONContent {
+  return JSON.parse(JSON.stringify(node.toJSON()));
+}
+
 // Accepts only TipTap JSON that fits the note schema (D5, SEC-3). Returns the
-// normalized document: unknown attributes are dropped and the rest are made safe.
+// normalized document as plain JSON: unknown attributes are dropped and the
+// rest are made safe.
 export function parseNoteContent(input: unknown): JSONContent {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
     throw invalid("This note's content is invalid.");
@@ -111,7 +119,7 @@ export function parseNoteContent(input: unknown): JSONContent {
 
   const doc = parseDoc(input);
   assertAllowedAttributes(doc);
-  return rebuildSafe(doc).toJSON();
+  return toPlainJson(rebuildSafe(doc));
 }
 
 // For content sent as a JSON string. The size is checked before parsing, so an

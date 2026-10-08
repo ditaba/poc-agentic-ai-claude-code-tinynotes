@@ -6,7 +6,7 @@ import { unstable_rethrow } from 'next/navigation';
 import { useActionState } from 'react';
 import { createNote, updateNote } from '@/app/notes/actions';
 import { NoteEditor, useNoteEditor } from '@/components/note-editor';
-import { buttonStyles, inputStyles, labelStyles } from '@/components/styles';
+import { buttonStyles, focusRing, inputStyles, labelStyles } from '@/components/styles';
 import { SubmitButton } from '@/components/submit-button';
 import { Switch } from '@/components/switch';
 import { readField } from '@/lib/form-data';
@@ -19,6 +19,8 @@ type NoteFormProps =
 
 type FormState = {
   error: string | null;
+  // The session ended: offer a sign-in link that keeps this page open (AS-5).
+  signedOut: boolean;
   saved: boolean;
   title: string;
   isShared: boolean;
@@ -37,6 +39,7 @@ export function NoteForm(props: NoteFormProps) {
   });
   const [state, formAction] = useActionState(submit, {
     error: null,
+    signedOut: false,
     saved: false,
     title: isEdit ? props.initialTitle : '',
     isShared: false,
@@ -59,12 +62,19 @@ export function NoteForm(props: NoteFormProps) {
           : await createNote({ title, content, isShared });
       // Creating redirects to the new note's edit page, so only edits and errors
       // come back here.
-      return { error: result.ok ? null : result.message, saved: result.ok, title, isShared };
+      if (result.ok) return { error: null, signedOut: false, saved: true, title, isShared };
+      return {
+        error: result.message,
+        signedOut: result.code === 'UNAUTHENTICATED',
+        saved: false,
+        title,
+        isShared,
+      };
     } catch (err) {
       // The redirect after creating arrives as a rejected promise; let Next.js handle it.
       unstable_rethrow(err);
       // Anything else is a failed request (e.g. offline). Keep the note (AS-5).
-      return { error: NETWORK_ERROR, saved: false, title, isShared };
+      return { error: NETWORK_ERROR, signedOut: false, saved: false, title, isShared };
     }
   }
 
@@ -116,7 +126,24 @@ export function NoteForm(props: NoteFormProps) {
 
       <p aria-live='polite' className='min-h-5 text-sm'>
         {state.error ? (
-          <span className='text-rose-600'>{state.error}</span>
+          <span className='text-rose-600'>
+            {state.error}
+            {state.signedOut && (
+              <>
+                {' '}
+                {/* A new tab, so this page and the unsaved note stay open. */}
+                <a
+                  href='/auth?mode=sign-in'
+                  target='_blank'
+                  rel='noopener'
+                  className={`rounded font-medium text-aqua-700 underline underline-offset-4 ${focusRing}`}
+                >
+                  Sign in (opens a new tab)
+                </a>
+                , then save again.
+              </>
+            )}
+          </span>
         ) : state.saved ? (
           <span className='text-aqua-700'>Changes saved.</span>
         ) : null}

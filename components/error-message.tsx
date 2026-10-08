@@ -10,8 +10,8 @@ type ErrorMessageProps = {
   onRetry: () => void;
 };
 
-// Shared by app/error.tsx and app/global-error.tsx (ERR-4). Never shows the
-// error's message, only the reference ID.
+// The error screen for app/error.tsx (ERR-4). Never shows the error's message,
+// only the reference ID.
 export function ErrorMessage({ digest, onRetry }: ErrorMessageProps) {
   return (
     <main className='mx-auto w-full max-w-md px-4 py-16 text-center'>
