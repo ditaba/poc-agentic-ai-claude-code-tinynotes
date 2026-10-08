@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { ErrorMessage } from "@/components/error-message";
+import { ErrorMessage } from '@/components/error-message';
 
 type ErrorPageProps = {
   error: Error & { digest?: string };

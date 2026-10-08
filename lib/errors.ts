@@ -1,11 +1,11 @@
-export type ErrorCode = "VALIDATION" | "NOT_FOUND" | "UNAUTHENTICATED" | "INTERNAL";
+export type ErrorCode = 'VALIDATION' | 'NOT_FOUND' | 'UNAUTHENTICATED' | 'INTERNAL';
 
 export type ActionError = { ok: false; code: ErrorCode; message: string };
 
 // What every Server Action returns (ERR-1).
 export type ActionResult<T = void> = { ok: true; data: T } | ActionError;
 
-const GENERIC_MESSAGE = "Something went wrong. Please try again.";
+const GENERIC_MESSAGE = 'Something went wrong. Please try again.';
 
 // An error whose message is safe to show to users.
 export class AppError extends Error {
@@ -14,7 +14,7 @@ export class AppError extends Error {
     message: string,
   ) {
     super(message);
-    this.name = "AppError";
+    this.name = 'AppError';
   }
 }
 
@@ -24,5 +24,5 @@ export function toActionError(err: unknown): ActionError {
   if (err instanceof AppError) {
     return { ok: false, code: err.code, message: err.message };
   }
-  return { ok: false, code: "INTERNAL", message: GENERIC_MESSAGE };
+  return { ok: false, code: 'INTERNAL', message: GENERIC_MESSAGE };
 }

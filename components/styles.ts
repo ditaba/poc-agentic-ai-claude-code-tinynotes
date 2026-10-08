@@ -2,7 +2,7 @@
 // and client components can both import the strings.
 
 export const focusRing =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua-400 focus-visible:ring-offset-2";
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua-400 focus-visible:ring-offset-2';
 
 const buttonBase = `inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`;
 
@@ -14,6 +14,9 @@ export const buttonStyles = {
 export type ButtonVariant = keyof typeof buttonStyles;
 
 export const inputStyles =
-  "w-full rounded-lg border border-aqua-200 bg-white px-3 py-2 text-slate-800 placeholder:text-slate-400 focus-visible:border-aqua-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua-400 focus-visible:ring-offset-2";
+  'w-full rounded-lg border border-aqua-200 bg-white px-3 py-2 text-slate-800 placeholder:text-slate-400 focus-visible:border-aqua-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua-400 focus-visible:ring-offset-2';
 
-export const labelStyles = "text-sm font-medium text-aqua-950";
+export const labelStyles = 'text-sm font-medium text-aqua-950';
+
+// Note text in the editor and on the public page looks the same (EDIT-4).
+export const noteProseStyles = 'prose prose-slate prose-a:text-aqua-700 max-w-none';

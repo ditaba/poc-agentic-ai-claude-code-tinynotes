@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
-import { useFormStatus } from "react-dom";
-import { buttonStyles, type ButtonVariant } from "@/components/styles";
+import type { ReactNode } from 'react';
+import { useFormStatus } from 'react-dom';
+import { buttonStyles, type ButtonVariant } from '@/components/styles';
 
 type SubmitButtonProps = {
   children: ReactNode;
@@ -15,13 +15,13 @@ type SubmitButtonProps = {
 export function SubmitButton({
   children,
   pendingLabel,
-  variant = "primary",
-  className = "",
+  variant = 'primary',
+  className = '',
 }: SubmitButtonProps) {
   const { pending } = useFormStatus();
 
   return (
-    <button type="submit" disabled={pending} className={`${buttonStyles[variant]} ${className}`}>
+    <button type='submit' disabled={pending} className={`${buttonStyles[variant]} ${className}`}>
       {pending ? pendingLabel : children}
     </button>
   );

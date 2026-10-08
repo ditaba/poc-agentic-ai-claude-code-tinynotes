@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { useActionState } from "react";
-import { SubmitButton } from "@/components/submit-button";
-import { authClient } from "@/lib/auth-client";
+import { useRouter } from 'next/navigation';
+import { useActionState } from 'react';
+import { SubmitButton } from '@/components/submit-button';
+import { authClient } from '@/lib/auth-client';
 
 const SIGN_OUT_FAILED = "Couldn't sign out";
 
@@ -21,20 +21,20 @@ export function SignOutButton() {
       return SIGN_OUT_FAILED;
     }
 
-    router.replace("/");
+    router.replace('/');
     // Re-renders the root layout, so the header switches back to "Sign in".
     router.refresh();
     return null;
   }
 
   return (
-    <form action={formAction} className="flex items-center gap-2">
+    <form action={formAction} className='flex items-center gap-2'>
       {error && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role='alert' className='text-xs text-rose-600'>
           {error}
         </p>
       )}
-      <SubmitButton variant="secondary" pendingLabel="Signing out…">
+      <SubmitButton variant='secondary' pendingLabel='Signing out…'>
         Sign out
       </SubmitButton>
     </form>

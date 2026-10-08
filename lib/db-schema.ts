@@ -1,4 +1,4 @@
-import type { Database } from "bun:sqlite";
+import type { Database } from 'bun:sqlite';
 
 // user, session, account and verification are better-auth's core tables, in
 // the shape its CLI generates for SQLite. better-auth owns them: app code only

@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, type FocusEvent, type KeyboardEvent } from "react";
+import { useState, type FocusEvent, type KeyboardEvent } from 'react';
 
-const ITEM_SELECTOR = "[data-roving-item]";
+const ITEM_SELECTOR = '[data-roving-item]';
 
 function itemsIn(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(ITEM_SELECTOR));
@@ -10,13 +10,13 @@ function itemsIn(container: HTMLElement): HTMLElement[] {
 
 function nextIndex(key: string, current: number, count: number): number | null {
   switch (key) {
-    case "ArrowRight":
+    case 'ArrowRight':
       return (current + 1) % count;
-    case "ArrowLeft":
+    case 'ArrowLeft':
       return (current - 1 + count) % count;
-    case "Home":
+    case 'Home':
       return 0;
-    case "End":
+    case 'End':
       return count - 1;
     default:
       return null;
