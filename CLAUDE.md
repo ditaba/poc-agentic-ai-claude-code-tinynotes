@@ -13,7 +13,7 @@ Use the DocsExplorer subagent for efficient documentation lookup.
 
 ## Commands
 
-Bun is the only package manager, runtime, test runner and script runner (D11). Use `bun add` / `bun install`, never npm. `bun.lock` is the lockfile, and `package-lock.json` gets deleted in M0.
+Bun is the only package manager, runtime and script runner (D11). Use `bun add` / `bun install`, never npm. `bun.lock` is the lockfile, and `package-lock.json` gets deleted in M0. Tests run on Vitest, started on the Bun runtime (this replaces `bun test` from D11).
 
 ```bash
 bun install
@@ -21,13 +21,16 @@ bun dev                       # runs migrations, then starts Next on the Bun run
 bun run build
 bun start
 bun run lint                  # eslint flat config (next core-web-vitals + typescript)
-bun test                      # all unit tests
-bun test lib/autosave         # only test files whose path matches
-bun test -t "enable twice"    # only tests whose name matches
+bun run test                  # all unit tests (Vitest)
+bun run test lib/notes        # only test files whose path matches
+bun run test -t "sharing > enabling twice"   # only tests whose full name (describe > test) matches
+bun run test:watch            # watch mode
 bun run db:migrate            # apply pending migrations
 ```
 
-Until M0 lands, `package.json` still has the scaffold scripts (`next dev` and so on) and no `test` or `db:migrate` scripts. M0 replaces them with the scripts in SPEC §12, which call `bun --bun next …`. The `--bun` flag is required because `bun:sqlite` only exists in the Bun runtime, and a plain `bun next dev` runs Next on Node.
+Always `bun run test`, never `bun test`: the latter starts Bun's own runner, which ignores `vitest.config.mts`, so `bunfig.toml` stops it with a hint.
+
+Until M0 lands, `package.json` still has the scaffold scripts (`next dev` and so on) and no `db:migrate` script. M0 replaces them with the scripts in SPEC §12, which call `bun --bun next …`. The `--bun` flag is required because `bun:sqlite` only exists in the Bun runtime, and a plain `bun next dev` runs Next on Node.
 
 Env (`.env`, copied from `.env.example`): `BETTER_AUTH_SECRET` (at least 32 chars), `BETTER_AUTH_URL` (`http://localhost:3000`, also the base URL for share links), and optionally `DB_PATH` (default `data/app.db`).
 
@@ -50,6 +53,18 @@ Env (`.env`, copied from `.env.example`): `BETTER_AUTH_SECRET` (at least 32 char
 
 ## Testing
 
-Testing is unit tests only (`bun test`) plus the manual checklist in SPEC §14.2. There's no E2E suite. Tests sit next to the module they cover (`lib/**/*.test.ts`). **Tested modules must not import `"server-only"`, `next/*` or `lib/db/index.ts`**, which is why data access takes `db` as a parameter. Use `createTestDb()` / `createTestUser(db)` from `lib/db/test-utils.ts`, which give an in-memory DB with the real migrations applied. Autosave tests use short real delays (10–50 ms), not fake timers.
+Testing is unit tests on Vitest 5 (`bun run test`, config in `vitest.config.mts`) plus the manual checklist in SPEC §14.2. There's no E2E suite and no DOM: tests use the default `node` environment. Tests sit next to the module they cover (`*.test.ts(x)` in `app/`, `components/` and `lib/`), and shared helpers live in `test/`.
 
-A milestone is done only when `bun run lint`, `bun test` and `bun run build` all pass.
+- **Runtime and config:** the script runs `bun --bun vitest`, because `bun:sqlite` only exists in the Bun runtime (plain Node can't load it). The config aliases `server-only` to an empty module, resolves `@/*` with `resolve.tsconfigPaths`, and pins env vars because Bun loads `.env`. `DB_PATH=:memory:` makes `@/lib/db` an in-memory database, so tests never touch `data/app.db`. `BETTER_AUTH_URL` is `http://localhost:3000`. Mocks, spies, env stubs and globals are reset before every test.
+- **Data layer:** use `createTestDb()` / `createTestUser(db)` from `test/db.ts` (a fresh in-memory DB with the real schema). Data access keeps taking `db` as a parameter.
+- **Server Actions and pages:** import them directly and use the shared `db` from `@/lib/db`.
+  - Mock `next/headers` (`headers: async () => new Headers()`) and, as needed, `next/cache` and `next/server`'s `connection`.
+  - Use `vi.mock('next/navigation', { spy: true })`: the real `redirect()` / `notFound()` still throw (`NEXT_REDIRECT`, `NEXT_HTTP_ERROR_FALLBACK;404`), and calls are tracked.
+  - `signInAs(user | null)` from `test/session.ts` sets who is signed in.
+  - `pageProps()` and `renderPage()` from `test/next.ts` call an async page and render it to HTML. Pages whose client components call `useRouter` need it mocked.
+- **Auth:** `lib/auth.test.ts` runs the real better-auth config against the in-memory DB, so error codes are better-auth's own.
+- **Client components** stay thin. Their logic lives in plain modules (`components/save-note.ts`, `components/sharing.ts`, `lib/auth-requests.ts`, `lib/rich-text/link-prompt.ts`), tested with the Server Actions or `authClient` mocked via `vi.mock`.
+- **Vitest 5 rules:** `vi.mock` must be at the top level. `-t` matches the full `describe > test` name.
+- Autosave tests use short real delays (10–50 ms), not fake timers.
+
+A milestone is done only when `bun run lint`, `bun run test` and `bun run build` all pass.

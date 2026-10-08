@@ -1,0 +1,3 @@
+[test]
+# The tests run on Vitest (`bun run test`); this stops `bun test` with a hint.
+preload = ["./test/bun-test-guard.ts"]

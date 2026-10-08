@@ -8,7 +8,8 @@ function itemsIn(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(ITEM_SELECTOR));
 }
 
-function nextIndex(key: string, current: number, count: number): number | null {
+// The item a key moves focus to, or null for keys the toolbar doesn't handle.
+export function nextIndex(key: string, current: number, count: number): number | null {
   switch (key) {
     case 'ArrowRight':
       return (current + 1) % count;

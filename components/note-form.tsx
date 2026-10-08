@@ -2,10 +2,9 @@
 
 import type { JSONContent } from '@tiptap/core';
 import Link from 'next/link';
-import { unstable_rethrow } from 'next/navigation';
 import { useActionState } from 'react';
-import { createNote, updateNote } from '@/app/notes/actions';
 import { NoteEditor, useNoteEditor } from '@/components/note-editor';
+import { saveNote, type NoteFormState } from '@/components/save-note';
 import { buttonStyles, focusRing, inputStyles, labelStyles } from '@/components/styles';
 import { SubmitButton } from '@/components/submit-button';
 import { Switch } from '@/components/switch';
@@ -16,17 +15,6 @@ import { EMPTY_DOC } from '@/lib/rich-text/extensions';
 type NoteFormProps =
   | { mode: 'create' }
   | { mode: 'edit'; noteId: string; initialTitle: string; initialContent: JSONContent };
-
-type FormState = {
-  error: string | null;
-  // The session ended: offer a sign-in link that keeps this page open (AS-5).
-  signedOut: boolean;
-  saved: boolean;
-  title: string;
-  isShared: boolean;
-};
-
-const NETWORK_ERROR = "Couldn't save your note. Check your connection and try again.";
 
 const CONTENT_LABEL_ID = 'note-content-label';
 const SHARE_HINT_ID = 'share-hint';
@@ -45,37 +33,14 @@ export function NoteForm(props: NoteFormProps) {
     isShared: false,
   });
 
-  async function submit(_previous: FormState, formData: FormData): Promise<FormState> {
-    const title = readField(formData, 'title');
-    const isShared = formData.get('isShared') === 'on';
-    // Read only on submit, so typing doesn't re-render the form. Sent as a string
-    // because ProseMirror's attribute objects can't be Server Action arguments.
-    const content = JSON.stringify(editor?.getJSON() ?? EMPTY_DOC);
-
-    // The title and switch are returned in every case, so they keep their values
-    // after React resets the form. The editor isn't a form field, so its content
-    // always survives.
-    try {
-      const result =
-        props.mode === 'edit'
-          ? await updateNote(props.noteId, { title, content })
-          : await createNote({ title, content, isShared });
-      // Creating redirects to the new note's edit page, so only edits and errors
-      // come back here.
-      if (result.ok) return { error: null, signedOut: false, saved: true, title, isShared };
-      return {
-        error: result.message,
-        signedOut: result.code === 'UNAUTHENTICATED',
-        saved: false,
-        title,
-        isShared,
-      };
-    } catch (err) {
-      // The redirect after creating arrives as a rejected promise; let Next.js handle it.
-      unstable_rethrow(err);
-      // Anything else is a failed request (e.g. offline). Keep the note (AS-5).
-      return { error: NETWORK_ERROR, signedOut: false, saved: false, title, isShared };
-    }
+  function submit(_previous: NoteFormState, formData: FormData): Promise<NoteFormState> {
+    // The editor's content is read only on submit, so typing doesn't re-render
+    // the form. It isn't a form field, so it survives React's form reset.
+    return saveNote(props, {
+      title: readField(formData, 'title'),
+      content: JSON.stringify(editor?.getJSON() ?? EMPTY_DOC),
+      isShared: formData.get('isShared') === 'on',
+    });
   }
 
   return (

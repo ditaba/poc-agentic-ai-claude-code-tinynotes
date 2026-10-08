@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import { applySchema } from './db-schema';
+import { applySchema } from '@/lib/db-schema';
 
 // An in-memory database with the same pragmas and schema as lib/db.ts.
 export function createTestDb(): Database {

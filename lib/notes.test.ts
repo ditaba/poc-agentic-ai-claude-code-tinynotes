@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import {
   createNote,
   disableSharing,
@@ -8,7 +8,7 @@ import {
   listNotes,
   updateNote,
 } from './notes';
-import { createTestDb, createTestUser } from './test-utils';
+import { createTestDb, createTestUser } from '@/test/db';
 
 const content = {
   type: 'doc',

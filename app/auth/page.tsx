@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AuthForm, type AuthMode } from '@/components/auth-form';
+import { AuthForm } from '@/components/auth-form';
+import type { AuthMode } from '@/lib/auth-requests';
 import { getCurrentUser } from '@/lib/session';
 
 // Anything other than ?mode=sign-up shows sign-in.

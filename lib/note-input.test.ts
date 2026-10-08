@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { AppError } from '@/lib/errors';
 import { parseNoteInput, readShareFlag } from './note-input';
 

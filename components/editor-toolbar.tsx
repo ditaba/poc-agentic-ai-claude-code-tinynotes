@@ -25,6 +25,7 @@ import { focusRing } from '@/components/styles';
 import { useRovingFocus } from '@/components/use-roving-focus';
 import { formatShortcut, toAriaKeyShortcuts, type Shortcut } from '@/lib/keyboard-shortcuts';
 import { promptForLink } from '@/lib/rich-text/link-prompt';
+import { tooltipAlign, type TooltipAlign } from '@/lib/tooltip-align';
 
 type Tool = {
   id: string;
@@ -266,27 +267,16 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
   );
 }
 
-type TooltipAlign = 'start' | 'center' | 'end';
-
 const TOOLTIP_POSITION: Record<TooltipAlign, string> = {
   start: 'left-0',
   center: 'left-1/2 -translate-x-1/2',
   end: 'right-0',
 };
 
-// Room a centered tooltip needs on each side; the widest is about 180px.
-const TOOLTIP_HALF_WIDTH = 96;
-
-// Aligns the tooltip to the toolbar edge the button is close to, so it never
-// sticks out of the toolbar, however the buttons wrap.
 function tooltipAlignFor(button: HTMLElement): TooltipAlign {
-  const toolbar = button.closest('[role="toolbar"]')?.getBoundingClientRect();
+  const toolbar = button.closest('[role="toolbar"]');
   if (!toolbar) return 'center';
-  const { left, width } = button.getBoundingClientRect();
-  const center = left + width / 2;
-  if (center - toolbar.left < TOOLTIP_HALF_WIDTH) return 'start';
-  if (toolbar.right - center < TOOLTIP_HALF_WIDTH) return 'end';
-  return 'center';
+  return tooltipAlign(button.getBoundingClientRect(), toolbar.getBoundingClientRect());
 }
 
 type ToolbarButtonProps = {
