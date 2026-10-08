@@ -5,11 +5,12 @@ Builds on the existing Next.js 16.1 / React 19.2 / Tailwind 4 scaffold in this r
 
 ## 1. Overview
 
-TinyNotes is a deliberately simple demo app. Users sign up with email and password and write rich-text notes, which are saved automatically. They can publish any note through a public link that they can revoke; anyone with an active link can read the note without an account. Prefer the simplest solution, and don't build anything listed under *Out of scope*.
+TinyNotes is a deliberately simple demo app. Users sign up with email and password and write rich-text notes, which are saved automatically. They can publish any note through a public link that they can revoke; anyone with an active link can read the note without an account. Prefer the simplest solution, and don't build anything listed under _Out of scope_.
 
 ## 2. Scope
 
 **In scope:**
+
 - Email/password auth
 - Create, view, edit (with autosave) and delete your own notes
 - A public share link per note: enable, copy, disable
@@ -18,6 +19,7 @@ TinyNotes is a deliberately simple demo app. Users sign up with email and passwo
 - A branded 404 page
 
 **Out of scope:**
+
 - A **`/settings` route** or any settings, profile or account page
 - Password reset, email verification, sending any email, OAuth, 2FA
 - Account deletion
@@ -29,32 +31,32 @@ TinyNotes is a deliberately simple demo app. Users sign up with email and passwo
 
 ## 3. Decisions
 
-| # | Decision |
-|---|---|
-| D1 | Notes have a separate plain-text **title**. An empty title is shown as "Untitled". |
-| D2 | **Autosave**, debounced, with no Save button (§6.3). |
-| D3 | Disabling sharing revokes the link permanently. Re-enabling always creates a **new** link. |
-| D4 | Testing is `bun test` unit tests plus a manual acceptance checklist. No E2E suite. |
-| D5 | Content is stored **only as TipTap JSON**. HTML is generated on the server and is never stored or accepted from the client. |
-| D6 | The public page shows the title, content and last-updated date, but **not the author**. |
-| D7 | Our tables use **camelCase** columns, like better-auth's tables, so rows map 1:1 to TS objects. |
-| D8 | Mutations go through **Server Actions**. Auth goes through better-auth's route handler and client SDK. There's no custom REST API. |
-| D9 | Notes are **hard-deleted** after a confirmation. |
-| D10 | **Last write wins** when one note is open in two tabs. |
-| D11 | **Bun only**, as package manager, runtime, test runner and script runner. Delete `package-lock.json`. |
-| D12 | Light theme only, with the **aqua** palette in §11. |
+| #   | Decision                                                                                                                           |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Notes have a separate plain-text **title**. An empty title is shown as "Untitled".                                                 |
+| D2  | **Autosave**, debounced, with no Save button (§6.3).                                                                               |
+| D3  | Disabling sharing revokes the link permanently. Re-enabling always creates a **new** link.                                         |
+| D4  | Testing is `bun test` unit tests plus a manual acceptance checklist. No E2E suite.                                                 |
+| D5  | Content is stored **only as TipTap JSON**. HTML is generated on the server and is never stored or accepted from the client.        |
+| D6  | The public page shows the title, content and last-updated date, but **not the author**.                                            |
+| D7  | Our tables use **camelCase** columns, like better-auth's tables, so rows map 1:1 to TS objects.                                    |
+| D8  | Mutations go through **Server Actions**. Auth goes through better-auth's route handler and client SDK. There's no custom REST API. |
+| D9  | Notes are **hard-deleted** after a confirmation.                                                                                   |
+| D10 | **Last write wins** when one note is open in two tabs.                                                                             |
+| D11 | **Bun only**, as package manager, runtime, test runner and script runner. Delete `package-lock.json`.                              |
+| D12 | Light theme only, with the **aqua** palette in §11.                                                                                |
 
 ## 4. Tech stack
 
-| Concern | Choice | Version (pin exactly) |
-|---|---|---|
-| Runtime / package manager | Bun | ≥ 1.3 (verified on 1.3.12) |
-| Framework | Next.js App Router, TypeScript `strict` | 16.1.1 (installed) |
-| UI | React | 19.2.3 (installed) |
-| Styling | Tailwind CSS v4 + `@tailwindcss/typography` | 4.x / 0.5.20 |
-| Rich text | `@tiptap/react` `@tiptap/pm` `@tiptap/core` `@tiptap/starter-kit` `@tiptap/html` | 3.31.4 |
-| Auth | `better-auth` (email + password) | 1.7.7 |
-| Database | SQLite through the built-in `bun:sqlite`; raw parameterized SQL; custom migrations | — |
+| Concern                   | Choice                                                                             | Version (pin exactly)      |
+| ------------------------- | ---------------------------------------------------------------------------------- | -------------------------- |
+| Runtime / package manager | Bun                                                                                | ≥ 1.3 (verified on 1.3.12) |
+| Framework                 | Next.js App Router, TypeScript `strict`                                            | 16.1.1 (installed)         |
+| UI                        | React                                                                              | 19.2.3 (installed)         |
+| Styling                   | Tailwind CSS v4 + `@tailwindcss/typography`                                        | 4.x / 0.5.20               |
+| Rich text                 | `@tiptap/react` `@tiptap/pm` `@tiptap/core` `@tiptap/starter-kit` `@tiptap/html`   | 3.31.4                     |
+| Auth                      | `better-auth` (email + password)                                                   | 1.7.7                      |
+| Database                  | SQLite through the built-in `bun:sqlite`; raw parameterized SQL; custom migrations | —                          |
 
 Don't add an ORM, query builder, validation library or UI kit.
 
@@ -62,17 +64,17 @@ Don't add an ORM, query builder, validation library or UI kit.
 
 ## 5. Routes
 
-| Route | Access | Content |
-|---|---|---|
-| `/` | public | Intro with Sign in / Sign up. Signed-in users are redirected to `/notes`. |
-| `/sign-up`, `/sign-in` | signed-out (signed-in users → `/notes`) | Auth forms |
-| `/notes` | signed-in | Note list |
-| `/notes/new` | signed-in | Empty editor. The note is created on the first autosave. |
-| `/notes/[id]` | owner | Read-only view, share panel, Edit, Delete |
-| `/notes/[id]/edit` | owner | Editor with autosave |
-| `/s/[token]` | public | Shared note, read-only |
-| `/api/auth/[...all]` | — | better-auth handler |
-| anything else | — | 404 page (§7) |
+| Route                  | Access                                  | Content                                                                   |
+| ---------------------- | --------------------------------------- | ------------------------------------------------------------------------- |
+| `/`                    | public                                  | Intro with Sign in / Sign up. Signed-in users are redirected to `/notes`. |
+| `/sign-up`, `/sign-in` | signed-out (signed-in users → `/notes`) | Auth forms                                                                |
+| `/notes`               | signed-in                               | Note list                                                                 |
+| `/notes/new`           | signed-in                               | Empty editor. The note is created on the first autosave.                  |
+| `/notes/[id]`          | owner                                   | Read-only view, share panel, Edit, Delete                                 |
+| `/notes/[id]/edit`     | owner                                   | Editor with autosave                                                      |
+| `/s/[token]`           | public                                  | Shared note, read-only                                                    |
+| `/api/auth/[...all]`   | —                                       | better-auth handler                                                       |
+| anything else          | —                                       | 404 page (§7)                                                             |
 
 - Signed-out users who open any `/notes…` route are redirected to `/sign-in`.
 - **Every page and every Server Action checks auth itself.** Don't rely on layouts for this, because they don't re-run on client-side navigation. There's no `proxy.ts`.
@@ -91,7 +93,7 @@ Don't add an ORM, query builder, validation library or UI kit.
 
 - **NOTE-1** `/notes` lists only the current user's notes, newest `updatedAt` first. Each row shows the title (or "Untitled"), the last-updated time, and a "Shared" badge when a link is active. With no notes, show an empty state with a "Create your first note" button.
 - **NOTE-2 View page**: title, last updated, rendered content, **Edit**, **Delete**, and the share panel.
-- **NOTE-3 Delete** asks *"Delete this note? This can't be undone, and its public link will stop working."* On confirm, the note is hard-deleted and the user goes to `/notes`.
+- **NOTE-3 Delete** asks _"Delete this note? This can't be undone, and its public link will stop working."_ On confirm, the note is hard-deleted and the user goes to `/notes`.
 - **NOTE-4** Another user's note id, or a nonexistent id, returns **404, never 403**.
 - **NOTE-5 Limits**: title ≤ 200 chars after trimming; content ≤ 256 KiB as serialized JSON. The server enforces both.
 
@@ -107,12 +109,12 @@ Don't add an ORM, query builder, validation library or UI kit.
 - **AS-4 Status indicator**: "Saved", "Unsaved changes", "Saving…", or an error message (AS-5). `beforeunload` warns while anything is unsaved, saving or failed.
 - **AS-5 Failures never discard local content.** Behavior per error code (§7):
 
-  | Error | Behavior |
-  |---|---|
+  | Error                      | Behavior                                                                                                                                 |
+  | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
   | Network error / `INTERNAL` | Retry automatically after 2 s, 5 s and 10 s. Then show "Couldn't save your changes" with a **Retry** button. The next edit also retries. |
-  | `VALIDATION` | Show the message, e.g. "This note is too large to save". Retry only on the next edit. |
-  | `NOT_FOUND` | Stop autosaving. Show "This note no longer exists" with a link to `/notes`. |
-  | `UNAUTHENTICATED` | Stop autosaving. Show "You've been signed out" with a `/sign-in` link that opens in a new tab, then **Retry**. |
+  | `VALIDATION`               | Show the message, e.g. "This note is too large to save". Retry only on the next edit.                                                    |
+  | `NOT_FOUND`                | Stop autosaving. Show "This note no longer exists" with a link to `/notes`.                                                              |
+  | `UNAUTHENTICATED`          | Stop autosaving. Show "You've been signed out" with a `/sign-in` link that opens in a new tab, then **Retry**.                           |
 
 - **AS-6 New notes.** `/notes/new` stores nothing until the first change. The first save calls `createNote`, then `window.history.replaceState(null, "", \`/notes/${id}/edit\`)`. This changes the URL without remounting the editor, so the cursor stays put. Later saves call `updateNote`. Leaving an untouched `/notes/new` creates no note.
 - **AS-7** Every save updates `updatedAt`. Share links always show the latest saved version.
@@ -128,7 +130,7 @@ Don't add an ORM, query builder, validation library or UI kit.
 
 - **SHARE-1 Share panel** on the view page. When off: a short explanation and a **Create public link** button. When on: a read-only URL field, a **Copy** button (shows "Copied"), and a **Disable link** button.
 - **SHARE-2 Enable** generates a new token. If the note is already shared, it returns the existing token, so repeated clicks don't rotate it.
-- **SHARE-3 Disable** asks *"Anyone using this link will lose access. Turning sharing back on creates a new link."* It then sets the token to `NULL`, effective from the next request.
+- **SHARE-3 Disable** asks _"Anyone using this link will lose access. Turning sharing back on creates a new link."_ It then sets the token to `NULL`, effective from the next request.
 - **SHARE-4** Deleting a note kills its link. Sharing changes don't touch `updatedAt`.
 - **SHARE-5** URL format: `${BETTER_AUTH_URL}/s/${token}`.
 
@@ -147,7 +149,11 @@ Don't add an ORM, query builder, validation library or UI kit.
   ```ts
   type ActionResult<T = void> =
     | { ok: true; data: T }
-    | { ok: false; code: "VALIDATION" | "NOT_FOUND" | "UNAUTHENTICATED" | "INTERNAL"; message: string };
+    | {
+        ok: false;
+        code: 'VALIDATION' | 'NOT_FOUND' | 'UNAUTHENTICATED' | 'INTERNAL';
+        message: string;
+      };
   ```
   When the session is missing, actions return `UNAUTHENTICATED` instead of redirecting, so autosave keeps the user's content. The one exception is `deleteNote`, which redirects to `/notes` on success.
 - **ERR-2 `lib/errors.ts`** defines:
@@ -155,12 +161,13 @@ Don't add an ORM, query builder, validation library or UI kit.
   - `toActionError(err)`. An `AppError` keeps its code and message. Anything else becomes `{ code: "INTERNAL", message: "Something went wrong. Please try again." }`.
 
   `app/notes/actions.ts` wraps every action in `withAction(name, fn)`. The wrapper calls `unstable_rethrow(err)` first, so Next's `redirect`/`notFound` keep working. It then logs unexpected errors and returns `toActionError(err)`.
+
 - **ERR-3 Logging.** Use server-side `console.error` with context (action or route, `userId`, `noteId`) and the original error. Never log passwords, session tokens, share tokens or note content.
 - **ERR-4 Page errors.**
   - Missing notes, other users' notes and bad share tokens call `notFound()`.
   - Unexpected errors land in `app/error.tsx`, a client error boundary. It shows "Something went wrong", a **Try again** button (`reset()`), a link to `/notes`, and the error `digest` as a reference ID. It never shows `error.message`.
   - `app/global-error.tsx` covers failures in the root layout and renders its own `<html>`/`<body>`.
-- **ERR-5 404.** `app/not-found.tsx` is a branded page: *"Page not found. This page doesn't exist or is no longer available."*, plus a link home. It's served with HTTP 404 for unknown URLs, missing or foreign notes, and invalid or disabled share links. It looks identical in every case.
+- **ERR-5 404.** `app/not-found.tsx` is a branded page: _"Page not found. This page doesn't exist or is no longer available."_, plus a link home. It's served with HTTP 404 for unknown URLs, missing or foreign notes, and invalid or disabled share links. It looks identical in every case.
 - **ERR-6 Auth forms** map known better-auth error codes to fixed messages: invalid credentials, email already registered, password length. Any other error shows the generic message. Never render better-auth's raw message.
 - **ERR-7** Forms validate on the client for instant feedback, but the server re-validates and has the final say.
 
@@ -282,24 +289,29 @@ Tokens are 24 random bytes from `crypto.getRandomValues`, encoded as base64url: 
 **`extensions.ts`** holds the single extension list. The editor, validator and renderer all use it, so it must not import React.
 
 ```ts
-const ALLOWED = ["http:", "https:", "mailto:"];
+const ALLOWED = ['http:', 'https:', 'mailto:'];
 export const isAllowedHref = (href: string) => {
-  try { return ALLOWED.includes(new URL(href).protocol); } catch { return false; }
+  try {
+    return ALLOWED.includes(new URL(href).protocol);
+  } catch {
+    return false;
+  }
 };
 export const noteExtensions = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
     link: {
       openOnClick: false,
-      defaultProtocol: "https",
+      defaultProtocol: 'https',
       isAllowedUri: (url, ctx) => ctx.defaultValidate(url) && isAllowedHref(url),
-      HTMLAttributes: { target: "_blank", rel: "noopener noreferrer nofollow" },
+      HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer nofollow' },
     },
   }),
 ];
 ```
 
 **`validate.ts`**: `parseNoteContent(input: unknown)` rejects the content unless all of these hold:
+
 - It's a plain object with `type: "doc"`.
 - Its serialized size is ≤ 256 KiB.
 - `getSchema(noteExtensions).nodeFromJSON(doc).check()` passes. This throws on unknown nodes or marks and on invalid structure.
@@ -329,21 +341,28 @@ The editor wraps it in a thin `useAutosave` hook. On `/notes/new`, the `save` ca
 // lib/auth.ts  (server-only)
 export const auth = betterAuth({
   database: db, // bun:sqlite instance from lib/db
-  emailAndPassword: { enabled: true, autoSignIn: true, minPasswordLength: 8, maxPasswordLength: 128 },
+  emailAndPassword: {
+    enabled: true,
+    autoSignIn: true,
+    minPasswordLength: 8,
+    maxPasswordLength: 128,
+  },
 }); // secret + baseURL are read from BETTER_AUTH_SECRET / BETTER_AUTH_URL
 
 // app/api/auth/[...all]/route.ts
-export const { GET, POST } = toNextJsHandler(auth);          // from "better-auth/next-js"
+export const { GET, POST } = toNextJsHandler(auth); // from "better-auth/next-js"
 
 // lib/auth-client.ts — used by the auth forms and the sign-out button
-export const authClient = createAuthClient();                // from "better-auth/react"
+export const authClient = createAuthClient(); // from "better-auth/react"
 
 // lib/session.ts  (server-only)
-export const getCurrentUser = cache(async () =>
-  (await auth.api.getSession({ headers: await headers() }))?.user ?? null);
-export async function requireUser() {                       // pages only; actions use getCurrentUser
+export const getCurrentUser = cache(
+  async () => (await auth.api.getSession({ headers: await headers() }))?.user ?? null,
+);
+export async function requireUser() {
+  // pages only; actions use getCurrentUser
   const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
+  if (!user) redirect('/sign-in');
   return user;
 }
 ```
@@ -351,19 +370,20 @@ export async function requireUser() {                       // pages only; actio
 ### 9.6 Server Actions — `app/notes/actions.ts`
 
 Every action runs these steps in order:
+
 1. The `withAction` wrapper (ERR-2).
 2. `getCurrentUser()`; return `UNAUTHENTICATED` if there's no user.
 3. Validate all inputs, which arrive typed `unknown`: the NOTE-5 limits, `parseNoteContent`, and checking that ids are strings.
 4. Call the data layer with `user.id`. A `null`/`false` result returns `NOT_FOUND`.
 5. Call `revalidatePath` for the affected routes.
 
-| Action | Input | Success |
-|---|---|---|
-| `createNote` | `{ title, content }` | `{ id }` |
-| `updateNote` | `id, { title, content }` | `{ updatedAt }` |
-| `deleteNote` | `id` | `redirect("/notes")` |
-| `enableSharing` | `id` | `{ shareUrl }` |
-| `disableSharing` | `id` | `{}` |
+| Action           | Input                    | Success              |
+| ---------------- | ------------------------ | -------------------- |
+| `createNote`     | `{ title, content }`     | `{ id }`             |
+| `updateNote`     | `id, { title, content }` | `{ updatedAt }`      |
+| `deleteNote`     | `id`                     | `redirect("/notes")` |
+| `enableSharing`  | `id`                     | `{ shareUrl }`       |
+| `disableSharing` | `id`                     | `{}`                 |
 
 ### 9.7 Rendering
 
@@ -371,15 +391,15 @@ Every page that reads the DB or the session is dynamic. Don't enable `cacheCompo
 
 ## 10. Security
 
-| ID | Requirement |
-|---|---|
-| SEC-1 | **Authorization.** Every owner page and every action checks the session and scopes its SQL by `userId`. Non-owners get 404. |
-| SEC-2 | **SQL.** Bound parameters only. Never interpolate values into SQL strings. |
+| ID    | Requirement                                                                                                                                                                                                                                              |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-1 | **Authorization.** Every owner page and every action checks the session and scopes its SQL by `userId`. Non-owners get 404.                                                                                                                              |
+| SEC-2 | **SQL.** Bound parameters only. Never interpolate values into SQL strings.                                                                                                                                                                               |
 | SEC-3 | **XSS.** Shared notes are served from the same origin as the app, so this is critical. Only JSON is accepted and stored. Every write is validated against the schema and the link-protocol allowlist, and HTML is generated in exactly one place (§9.3). |
-| SEC-4 | **Share links.** Tokens carry 192 bits of randomness. Every failure case gets the same 404. The page sets `noindex` and `no-referrer`. |
-| SEC-5 | **Secrets.** `BETTER_AUTH_SECRET` is ≥ 32 random chars and comes from the environment only. `.env` is never committed. |
-| SEC-6 | **CSRF.** Rely on the Origin check built into Server Actions and on better-auth's origin checks. Never mutate state in a GET handler. |
-| SEC-7 | **Error leakage.** Follow §7. No internal details reach the client, and logs exclude secrets and note content. |
+| SEC-4 | **Share links.** Tokens carry 192 bits of randomness. Every failure case gets the same 404. The page sets `noindex` and `no-referrer`.                                                                                                                   |
+| SEC-5 | **Secrets.** `BETTER_AUTH_SECRET` is ≥ 32 random chars and comes from the environment only. `.env` is never committed.                                                                                                                                   |
+| SEC-6 | **CSRF.** Rely on the Origin check built into Server Actions and on better-auth's origin checks. Never mutate state in a GET handler.                                                                                                                    |
+| SEC-7 | **Error leakage.** Follow §7. No internal details reach the client, and logs exclude secrets and note content.                                                                                                                                           |
 
 ## 11. Styling — elegant aqua
 
@@ -387,24 +407,31 @@ Define the palette in `app/globals.css` with Tailwind v4 `@theme`. This generate
 
 ```css
 @theme {
-  --color-aqua-50:  #effcfc;  --color-aqua-100: #d5f5f6;  --color-aqua-200: #b0eaee;
-  --color-aqua-300: #79d9e0;  --color-aqua-400: #3cbfca;  --color-aqua-500: #20a3b0;
-  --color-aqua-600: #1c8494;  --color-aqua-700: #1d6a78;  --color-aqua-800: #1f5763;
-  --color-aqua-900: #1e4954;  --color-aqua-950: #0e2f38;
+  --color-aqua-50: #effcfc;
+  --color-aqua-100: #d5f5f6;
+  --color-aqua-200: #b0eaee;
+  --color-aqua-300: #79d9e0;
+  --color-aqua-400: #3cbfca;
+  --color-aqua-500: #20a3b0;
+  --color-aqua-600: #1c8494;
+  --color-aqua-700: #1d6a78;
+  --color-aqua-800: #1f5763;
+  --color-aqua-900: #1e4954;
+  --color-aqua-950: #0e2f38;
 }
 ```
 
-| Element | Classes |
-|---|---|
-| Page background | `bg-aqua-50`; the landing hero uses a soft `from-aqua-100 to-white` gradient |
-| Cards / surfaces | `bg-white border border-aqua-100 rounded-2xl shadow-sm` |
-| Primary button | `bg-aqua-700 hover:bg-aqua-800 text-white` (6.2:1 contrast, AA) |
-| Secondary button | `border-aqua-200 text-aqua-800 hover:bg-aqua-50` |
-| Text | body `text-slate-800`, muted `text-slate-500`, headings `text-aqua-950` |
-| Links / focus | `text-aqua-700`; `focus-visible:ring-2 ring-aqua-400 ring-offset-2` |
-| Shared badge, active toolbar button | `bg-aqua-100 text-aqua-800` |
-| Danger / errors | `text-rose-600`, `bg-rose-50` |
-| Note content | `prose prose-slate prose-a:text-aqua-700` |
+| Element                             | Classes                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| Page background                     | `bg-aqua-50`; the landing hero uses a soft `from-aqua-100 to-white` gradient |
+| Cards / surfaces                    | `bg-white border border-aqua-100 rounded-2xl shadow-sm`                      |
+| Primary button                      | `bg-aqua-700 hover:bg-aqua-800 text-white` (6.2:1 contrast, AA)              |
+| Secondary button                    | `border-aqua-200 text-aqua-800 hover:bg-aqua-50`                             |
+| Text                                | body `text-slate-800`, muted `text-slate-500`, headings `text-aqua-950`      |
+| Links / focus                       | `text-aqua-700`; `focus-visible:ring-2 ring-aqua-400 ring-offset-2`          |
+| Shared badge, active toolbar button | `bg-aqua-100 text-aqua-800`                                                  |
+| Danger / errors                     | `text-rose-600`, `bg-rose-50`                                                |
+| Note content                        | `prose prose-slate prose-a:text-aqua-700`                                    |
 
 - Use the existing Geist font, generous whitespace and a centered `max-w-3xl` column. Layouts must work from 360 px wide.
 - Remove the scaffold's `dark:` variants and placeholder content, and set the page metadata to "TinyNotes".
@@ -415,11 +442,11 @@ Define the palette in `app/globals.css` with Tailwind v4 `@theme`. This generate
 
 ## 12. Configuration & housekeeping
 
-| Env var | Required | Value |
-|---|---|---|
-| `BETTER_AUTH_SECRET` | yes | ≥ 32 random chars (`openssl rand -base64 32`) |
-| `BETTER_AUTH_URL` | yes | `http://localhost:3000`; the base URL for auth and share links |
-| `DB_PATH` | no | Defaults to `data/app.db` |
+| Env var              | Required | Value                                                          |
+| -------------------- | -------- | -------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET` | yes      | ≥ 32 random chars (`openssl rand -base64 32`)                  |
+| `BETTER_AUTH_URL`    | yes      | `http://localhost:3000`; the base URL for auth and share links |
+| `DB_PATH`            | no       | Defaults to `data/app.db`                                      |
 
 ```json
 "scripts": {
@@ -433,6 +460,7 @@ Define the palette in `app/globals.css` with Tailwind v4 `@theme`. This generate
 ```
 
 Housekeeping:
+
 - Delete `package-lock.json`.
 - `.gitignore`: the existing `.env*` rule also ignores `.env.example`, so add `!.env.example` and `/data/`.
 - Add `BETTER_AUTH_URL` to `.env.example`.
@@ -496,27 +524,28 @@ Tests sit next to the module they cover (`lib/**/*.test.ts`). Tested modules mus
 
 ## 15. Milestones (one PR each)
 
-| # | Scope | Done when |
-|---|---|---|
-| M0 | Dependencies, scripts, env, `.gitignore`, delete `package-lock.json`, aqua `@theme` + typography plugin. Spike: a throwaway page that queries `bun:sqlite`. | The spike works under `bun dev` **and** `build` + `start`; then remove it. |
-| M1 | `lib/db`, migration runner, `0001`, `0002`, test utils, migration tests | `db:migrate` is idempotent and the tests pass. |
-| M2 | better-auth wiring, auth pages, header, landing page, `lib/errors.ts`, `error.tsx`, `global-error.tsx`, `not-found.tsx` | The auth and 404 checklist items pass. |
-| M3 | `notes.ts`, `share-token.ts`, `rich-text/*`, `autosave.ts`, with tests | All of §14.1 passes. |
-| M4 | Notes UI: list, view, new/edit with autosave and status, delete, actions | The notes, autosave and ownership checklist items pass. |
-| M5 | Share panel, sharing actions, `/s/[token]` | The sharing checklist items pass. |
-| M6 | Styling pass, README, scaffold cleanup | The full checklist passes. |
+| #   | Scope                                                                                                                                                       | Done when                                                                  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| M0  | Dependencies, scripts, env, `.gitignore`, delete `package-lock.json`, aqua `@theme` + typography plugin. Spike: a throwaway page that queries `bun:sqlite`. | The spike works under `bun dev` **and** `build` + `start`; then remove it. |
+| M1  | `lib/db`, migration runner, `0001`, `0002`, test utils, migration tests                                                                                     | `db:migrate` is idempotent and the tests pass.                             |
+| M2  | better-auth wiring, auth pages, header, landing page, `lib/errors.ts`, `error.tsx`, `global-error.tsx`, `not-found.tsx`                                     | The auth and 404 checklist items pass.                                     |
+| M3  | `notes.ts`, `share-token.ts`, `rich-text/*`, `autosave.ts`, with tests                                                                                      | All of §14.1 passes.                                                       |
+| M4  | Notes UI: list, view, new/edit with autosave and status, delete, actions                                                                                    | The notes, autosave and ownership checklist items pass.                    |
+| M5  | Share panel, sharing actions, `/s/[token]`                                                                                                                  | The sharing checklist items pass.                                          |
+| M6  | Styling pass, README, scaffold cleanup                                                                                                                      | The full checklist passes.                                                 |
 
 ## 16. Risks
 
-| Risk | Mitigation |
-|---|---|
-| Next.js on the Bun runtime is less common than on Node. | Prove it in M0 before building anything else. If it's blocked, escalate to the owner; don't switch drivers. |
-| better-auth's schema can drift between versions. | Pin 1.7.7. Regenerate and diff the schema on upgrade (§8.3). |
-| Stored XSS through shared notes. | D5, §9.3 and SEC-3, plus the validation tests. |
-| Autosave races and lost edits. | Single-flight plus a final save on unmount and when the tab is hidden, `beforeunload`, and the autosave unit tests. |
-| TipTap SSR hydration errors. | The editor is a client component with `immediatelyRender: false`. |
+| Risk                                                    | Mitigation                                                                                                          |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Next.js on the Bun runtime is less common than on Node. | Prove it in M0 before building anything else. If it's blocked, escalate to the owner; don't switch drivers.         |
+| better-auth's schema can drift between versions.        | Pin 1.7.7. Regenerate and diff the schema on upgrade (§8.3).                                                        |
+| Stored XSS through shared notes.                        | D5, §9.3 and SEC-3, plus the validation tests.                                                                      |
+| Autosave races and lost edits.                          | Single-flight plus a final save on unmount and when the tab is hidden, `beforeunload`, and the autosave unit tests. |
+| TipTap SSR hydration errors.                            | The editor is a client component with `immediatelyRender: false`.                                                   |
 
 **References:**
+
 - better-auth: [SQLite adapter](https://www.better-auth.com/docs/adapters/sqlite), [Next.js integration](https://www.better-auth.com/docs/integrations/next), [Database schema](https://www.better-auth.com/docs/concepts/database)
 - TipTap: [Next.js](https://tiptap.dev/docs/editor/getting-started/install/nextjs), [StarterKit](https://tiptap.dev/docs/editor/extensions/functionality/starterkit), [Link](https://tiptap.dev/docs/editor/extensions/marks/link), [generateHTML](https://tiptap.dev/docs/editor/api/utilities/html)
 - [Bun SQLite](https://bun.com/docs/api/sqlite)

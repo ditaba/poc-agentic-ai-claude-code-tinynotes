@@ -1,7 +1,7 @@
-import type { JSONContent } from "@tiptap/core";
-import { AppError } from "@/lib/errors";
-import { MAX_TITLE_LENGTH } from "@/lib/note-limits";
-import { parseNoteContentJson } from "@/lib/rich-text/validate";
+import type { JSONContent } from '@tiptap/core';
+import { AppError } from '@/lib/errors';
+import { MAX_TITLE_LENGTH } from '@/lib/note-limits';
+import { parseNoteContentJson } from '@/lib/rich-text/validate';
 
 // What clients send. The content is the editor's JSON as a string: ProseMirror
 // builds node attributes as null-prototype objects, which Server Actions can't
@@ -9,6 +9,8 @@ import { parseNoteContentJson } from "@/lib/rich-text/validate";
 export type NoteSubmission = {
   title: string;
   content: string;
+  // New notes only: turn on public sharing when the note is created.
+  isShared?: boolean;
 };
 
 export type NoteInput = {
@@ -19,23 +21,30 @@ export type NoteInput = {
 // Validates untrusted input from a Server Action (NOTE-5). An empty title is
 // allowed and shown as "Untitled" (D1).
 export function parseNoteInput(input: unknown): NoteInput {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    throw new AppError("VALIDATION", "This note is invalid.");
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new AppError('VALIDATION', 'This note is invalid.');
   }
 
-  const title = "title" in input ? input.title : "";
-  if (typeof title !== "string") {
-    throw new AppError("VALIDATION", "The title is invalid.");
+  const title = 'title' in input ? input.title : '';
+  if (typeof title !== 'string') {
+    throw new AppError('VALIDATION', 'The title is invalid.');
   }
   const trimmedTitle = title.trim();
   if (trimmedTitle.length > MAX_TITLE_LENGTH) {
-    throw new AppError("VALIDATION", `Titles can be at most ${MAX_TITLE_LENGTH} characters.`);
+    throw new AppError('VALIDATION', `Titles can be at most ${MAX_TITLE_LENGTH} characters.`);
   }
 
-  const content = "content" in input ? input.content : undefined;
-  if (typeof content !== "string") {
-    throw new AppError("VALIDATION", "This note's content is invalid.");
+  const content = 'content' in input ? input.content : undefined;
+  if (typeof content !== 'string') {
+    throw new AppError('VALIDATION', "This note's content is invalid.");
   }
 
   return { title: trimmedTitle, content: parseNoteContentJson(content) };
+}
+
+// Sharing is only turned on by an explicit `true`.
+export function readShareFlag(input: unknown): boolean {
+  return (
+    typeof input === 'object' && input !== null && 'isShared' in input && input.isShared === true
+  );
 }

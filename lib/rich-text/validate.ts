@@ -1,13 +1,13 @@
-import { getSchema, type JSONContent } from "@tiptap/core";
-import type { Attrs, Mark, Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { AppError } from "@/lib/errors";
-import { MAX_CONTENT_BYTES } from "@/lib/note-limits";
-import { HEADING_LEVELS, isAllowedHref, noteExtensions } from "@/lib/rich-text/extensions";
+import { getSchema, type JSONContent } from '@tiptap/core';
+import type { Attrs, Mark, Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { AppError } from '@/lib/errors';
+import { MAX_CONTENT_BYTES } from '@/lib/note-limits';
+import { HEADING_LEVELS, isAllowedHref, noteExtensions } from '@/lib/rich-text/extensions';
 
 const schema = getSchema(noteExtensions);
 
 function invalid(message: string): AppError {
-  return new AppError("VALIDATION", message);
+  return new AppError('VALIDATION', message);
 }
 
 function byteLength(json: string): number {
@@ -30,7 +30,7 @@ function parseDoc(input: unknown): ProseMirrorNode {
     doc.check();
     return doc;
   } catch {
-    throw invalid("This note contains unsupported content.");
+    throw invalid('This note contains unsupported content.');
   }
 }
 
@@ -38,12 +38,15 @@ function parseDoc(input: unknown): ProseMirrorNode {
 // levels are checked by hand.
 function assertAllowedAttributes(doc: ProseMirrorNode): void {
   doc.descendants((node) => {
-    if (node.type.name === "heading" && !HEADING_LEVELS.some((level) => level === node.attrs.level)) {
-      throw invalid("Headings can only be levels 1 to 3.");
+    if (
+      node.type.name === 'heading' &&
+      !HEADING_LEVELS.some((level) => level === node.attrs.level)
+    ) {
+      throw invalid('Headings can only be levels 1 to 3.');
     }
     for (const mark of node.marks) {
-      if (mark.type.name === "link" && !isAllowedHref(String(mark.attrs.href ?? ""))) {
-        throw invalid("Links must start with http://, https:// or mailto:.");
+      if (mark.type.name === 'link' && !isAllowedHref(String(mark.attrs.href ?? ''))) {
+        throw invalid('Links must start with http://, https:// or mailto:.');
       }
     }
   });
@@ -53,26 +56,28 @@ function assertAllowedAttributes(doc: ProseMirrorNode): void {
 // identifiers like "ts" or "c++" are kept.
 const SAFE_LANGUAGE = /^[a-z0-9+#-]{1,32}$/i;
 // The values HTML allows for <ol type>.
-const LIST_TYPES = new Set(["1", "a", "A", "i", "I"]);
+const LIST_TYPES = new Set(['1', 'a', 'A', 'i', 'I']);
 
 // Only the validated href comes from the input. target, rel, class and title
 // get the schema defaults (target="_blank", rel="noopener noreferrer nofollow"),
 // so a crafted link can't restyle the page or drop noopener.
 function safeMark(mark: Mark): Mark {
-  return mark.type.name === "link" ? mark.type.create({ href: mark.attrs.href }) : mark;
+  return mark.type.name === 'link' ? mark.type.create({ href: mark.attrs.href }) : mark;
 }
 
 function safeAttrs(node: ProseMirrorNode): Attrs {
   switch (node.type.name) {
-    case "codeBlock": {
+    case 'codeBlock': {
       const { language } = node.attrs;
-      return { language: typeof language === "string" && SAFE_LANGUAGE.test(language) ? language : null };
+      return {
+        language: typeof language === 'string' && SAFE_LANGUAGE.test(language) ? language : null,
+      };
     }
-    case "orderedList": {
+    case 'orderedList': {
       const { start, type } = node.attrs;
       return {
         start: Number.isSafeInteger(start) && start >= 1 ? start : 1,
-        type: typeof type === "string" && LIST_TYPES.has(type) ? type : null,
+        type: typeof type === 'string' && LIST_TYPES.has(type) ? type : null,
       };
     }
     default:
@@ -84,7 +89,7 @@ function safeAttrs(node: ProseMirrorNode): Attrs {
 // values legitimately (e.g. a link's class), so they're replaced, not rejected.
 function rebuildSafe(node: ProseMirrorNode): ProseMirrorNode {
   const marks = node.marks.map(safeMark);
-  if (node.isText) return schema.text(node.text ?? "", marks);
+  if (node.isText) return schema.text(node.text ?? '', marks);
 
   const children: ProseMirrorNode[] = [];
   node.forEach((child) => children.push(rebuildSafe(child)));
@@ -94,14 +99,14 @@ function rebuildSafe(node: ProseMirrorNode): ProseMirrorNode {
 // Accepts only TipTap JSON that fits the note schema (D5, SEC-3). Returns the
 // normalized document: unknown attributes are dropped and the rest are made safe.
 export function parseNoteContent(input: unknown): JSONContent {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
     throw invalid("This note's content is invalid.");
   }
-  if (!("type" in input) || input.type !== "doc") {
+  if (!('type' in input) || input.type !== 'doc') {
     throw invalid("This note's content is invalid.");
   }
   if (serializedSize(input) > MAX_CONTENT_BYTES) {
-    throw invalid("This note is too large to save.");
+    throw invalid('This note is too large to save.');
   }
 
   const doc = parseDoc(input);
@@ -113,7 +118,7 @@ export function parseNoteContent(input: unknown): JSONContent {
 // oversized payload is never parsed.
 export function parseNoteContentJson(json: string): JSONContent {
   if (byteLength(json) > MAX_CONTENT_BYTES) {
-    throw invalid("This note is too large to save.");
+    throw invalid('This note is too large to save.');
   }
   let input: unknown;
   try {

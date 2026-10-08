@@ -1,8 +1,8 @@
-import "server-only";
-import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
-import { nextCookies } from "better-auth/next-js";
-import { db } from "@/lib/db";
+import 'server-only';
+import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
+import { nextCookies } from 'better-auth/next-js';
+import { db } from '@/lib/db';
 
 const NAME_MAX_LENGTH = 100;
 
@@ -22,9 +22,9 @@ export const auth = betterAuth({
         before: async (user) => {
           const name = user.name.trim();
           if (name.length < 1 || name.length > NAME_MAX_LENGTH) {
-            throw APIError.from("BAD_REQUEST", {
-              code: "INVALID_NAME",
-              message: "Name must be 1–100 characters",
+            throw APIError.from('BAD_REQUEST', {
+              code: 'INVALID_NAME',
+              message: 'Name must be 1–100 characters',
             });
           }
           return { data: { ...user, name } };
@@ -33,7 +33,7 @@ export const auth = betterAuth({
     },
   },
   // There's no profile page, and this endpoint would accept any name.
-  disabledPaths: ["/update-user"],
+  disabledPaths: ['/update-user'],
   // Must stay the last plugin. It skips session refreshes in server component
   // requests (which can't set cookies) and writes refreshed cookies in Server Actions.
   plugins: [nextCookies()],

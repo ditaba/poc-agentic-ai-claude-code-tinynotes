@@ -1,8 +1,8 @@
-import "server-only";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { cache } from "react";
-import { auth } from "@/lib/auth";
+import 'server-only';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { cache } from 'react';
+import { auth } from '@/lib/auth';
 
 export const getCurrentUser = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -13,6 +13,6 @@ export const getCurrentUser = cache(async () => {
 // instead, so autosave keeps the user's content.
 export async function requireUser() {
   const user = await getCurrentUser();
-  if (!user) redirect("/auth");
+  if (!user) redirect('/auth');
   return user;
 }
