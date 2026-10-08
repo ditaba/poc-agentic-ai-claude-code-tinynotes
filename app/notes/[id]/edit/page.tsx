@@ -1,10 +1,6 @@
 import { requireUser } from "@/lib/session";
 
-export default async function EditNotePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function EditNotePage({ params }: PageProps<"/notes/[id]/edit">) {
   await requireUser();
   const { id } = await params;
   return (

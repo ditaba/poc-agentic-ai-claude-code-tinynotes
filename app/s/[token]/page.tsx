@@ -1,8 +1,5 @@
-export default async function SharedNotePage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
+// Public: no auth check (PUB-1).
+export default async function SharedNotePage({ params }: PageProps<"/s/[token]">) {
   const { token } = await params;
   return (
     <main className="p-8">
