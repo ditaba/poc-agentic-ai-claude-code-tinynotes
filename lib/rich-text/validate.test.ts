@@ -79,6 +79,55 @@ describe("parseNoteContent", () => {
   });
 });
 
+describe("parseNoteContent attribute safety", () => {
+  const SAFE_LINK_ATTRS = { target: "_blank", rel: "noopener noreferrer nofollow", class: null, title: null };
+  const firstMarkAttrs = (parsed: ReturnType<typeof parseNoteContent>) =>
+    parsed.content?.[0].content?.[0].marks?.[0].attrs;
+
+  test("keeps only the href of a link and resets target, rel, class and title", () => {
+    const crafted = doc(
+      paragraph(
+        text("click", [
+          {
+            type: "link",
+            attrs: { href: "https://example.com", class: "fixed inset-0 z-50", rel: "opener", target: "_self", title: "x" },
+          },
+        ]),
+      ),
+    );
+    expect(firstMarkAttrs(parseNoteContent(crafted))).toEqual({ href: "https://example.com", ...SAFE_LINK_ATTRS });
+  });
+
+  test("leaves links made in the editor unchanged", () => {
+    const fromEditor = doc(paragraph(text("site", [{ type: "link", attrs: { href: "https://example.com", ...SAFE_LINK_ATTRS } }])));
+    expect(parseNoteContent(fromEditor)).toEqual(fromEditor);
+  });
+
+  test("keeps plain code block languages and drops anything else", () => {
+    const codeBlock = (language: unknown) => doc({ type: "codeBlock", attrs: { language }, content: [text("x")] });
+    expect(parseNoteContent(codeBlock("typescript")).content?.[0].attrs).toEqual({ language: "typescript" });
+    expect(parseNoteContent(codeBlock("c++")).content?.[0].attrs).toEqual({ language: "c++" });
+    expect(parseNoteContent(codeBlock("x fixed inset-0 z-50")).content?.[0].attrs).toEqual({ language: null });
+    expect(parseNoteContent(codeBlock(42)).content?.[0].attrs).toEqual({ language: null });
+  });
+
+  test("keeps valid ordered list attributes and resets invalid ones", () => {
+    const orderedList = (attrs: object) =>
+      doc({ type: "orderedList", attrs, content: [{ type: "listItem", content: [paragraph(text("x"))] }] });
+    expect(parseNoteContent(orderedList({ start: 5, type: "a" })).content?.[0].attrs).toEqual({ start: 5, type: "a" });
+    expect(parseNoteContent(orderedList({ start: '1" onclick="alert(1)', type: "<b>" })).content?.[0].attrs).toEqual({
+      start: 1,
+      type: null,
+    });
+    expect(parseNoteContent(orderedList({ start: -3, type: null })).content?.[0].attrs).toEqual({ start: 1, type: null });
+  });
+
+  test("keeps headings, marks and structure intact", () => {
+    expect(parseNoteContent(everyFeature)).toEqual(parseNoteContent(parseNoteContent(everyFeature)));
+    expect(JSON.stringify(parseNoteContent(everyFeature))).toContain('"level":3');
+  });
+});
+
 describe("parseNoteContentJson", () => {
   test("parses and validates a JSON string", () => {
     expect(parseNoteContentJson(JSON.stringify(everyFeature)).content).toHaveLength(everyFeature.content.length);

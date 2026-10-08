@@ -1,5 +1,5 @@
 import { getSchema, type JSONContent } from "@tiptap/core";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import type { Attrs, Mark, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { AppError } from "@/lib/errors";
 import { MAX_CONTENT_BYTES } from "@/lib/note-limits";
 import { HEADING_LEVELS, isAllowedHref, noteExtensions } from "@/lib/rich-text/extensions";
@@ -49,8 +49,50 @@ function assertAllowedAttributes(doc: ProseMirrorNode): void {
   });
 }
 
+// Code block languages end up in a class name (`language-…`), so only plain
+// identifiers like "ts" or "c++" are kept.
+const SAFE_LANGUAGE = /^[a-z0-9+#-]{1,32}$/i;
+// The values HTML allows for <ol type>.
+const LIST_TYPES = new Set(["1", "a", "A", "i", "I"]);
+
+// Only the validated href comes from the input. target, rel, class and title
+// get the schema defaults (target="_blank", rel="noopener noreferrer nofollow"),
+// so a crafted link can't restyle the page or drop noopener.
+function safeMark(mark: Mark): Mark {
+  return mark.type.name === "link" ? mark.type.create({ href: mark.attrs.href }) : mark;
+}
+
+function safeAttrs(node: ProseMirrorNode): Attrs {
+  switch (node.type.name) {
+    case "codeBlock": {
+      const { language } = node.attrs;
+      return { language: typeof language === "string" && SAFE_LANGUAGE.test(language) ? language : null };
+    }
+    case "orderedList": {
+      const { start, type } = node.attrs;
+      return {
+        start: Number.isSafeInteger(start) && start >= 1 ? start : 1,
+        type: typeof type === "string" && LIST_TYPES.has(type) ? type : null,
+      };
+    }
+    default:
+      return node.attrs;
+  }
+}
+
+// Rebuilds the document with safe attribute values. Pasted content can carry odd
+// values legitimately (e.g. a link's class), so they're replaced, not rejected.
+function rebuildSafe(node: ProseMirrorNode): ProseMirrorNode {
+  const marks = node.marks.map(safeMark);
+  if (node.isText) return schema.text(node.text ?? "", marks);
+
+  const children: ProseMirrorNode[] = [];
+  node.forEach((child) => children.push(rebuildSafe(child)));
+  return node.type.create(safeAttrs(node), children, marks);
+}
+
 // Accepts only TipTap JSON that fits the note schema (D5, SEC-3). Returns the
-// normalized document, which drops attributes the schema doesn't know.
+// normalized document: unknown attributes are dropped and the rest are made safe.
 export function parseNoteContent(input: unknown): JSONContent {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw invalid("This note's content is invalid.");
@@ -64,7 +106,7 @@ export function parseNoteContent(input: unknown): JSONContent {
 
   const doc = parseDoc(input);
   assertAllowedAttributes(doc);
-  return doc.toJSON();
+  return rebuildSafe(doc).toJSON();
 }
 
 // For content sent as a JSON string. The size is checked before parsing, so an

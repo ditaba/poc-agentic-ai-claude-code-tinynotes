@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { useActionState } from "react";
 import { createNote } from "@/app/notes/actions";
 import { NoteEditor, useNoteEditor } from "@/components/note-editor";
@@ -18,6 +19,8 @@ type FormState = {
 
 const initialState: FormState = { error: null, title: "" };
 
+const NETWORK_ERROR = "Couldn't save your note. Check your connection and try again.";
+
 const CONTENT_LABEL_ID = "note-content-label";
 
 export function NoteForm() {
@@ -31,10 +34,18 @@ export function NoteForm() {
       // because ProseMirror's attribute objects can't be Server Action arguments.
       content: JSON.stringify(editor?.getJSON() ?? EMPTY_DOC),
     };
-    const result = await createNote(submission);
-    // On success the action redirects to the dashboard, so only errors come back.
-    // The title is returned so the field keeps its value after React resets the form.
-    return { error: result.ok ? null : result.message, title: submission.title };
+    // The title is returned in every case, so the field keeps its value after React
+    // resets the form. The editor isn't a form field, so its content always survives.
+    try {
+      const result = await createNote(submission);
+      // On success the action redirects to the dashboard, so only errors come back.
+      return { error: result.ok ? null : result.message, title: submission.title };
+    } catch (err) {
+      // The success redirect arrives as a rejected promise; let Next.js handle it.
+      unstable_rethrow(err);
+      // Anything else is a failed request (e.g. offline). Keep the note (AS-5).
+      return { error: NETWORK_ERROR, title: submission.title };
+    }
   }
 
   return (
