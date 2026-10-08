@@ -35,10 +35,7 @@ async function withAction<T>(
 async function requireActionUser(context: LogContext) {
   const user = await getCurrentUser();
   if (!user) {
-    throw new AppError(
-      'UNAUTHENTICATED',
-      "You've been signed out. Sign in again to save this note.",
-    );
+    throw new AppError('UNAUTHENTICATED', "You've been signed out.");
   }
   context.userId = user.id;
   return user;

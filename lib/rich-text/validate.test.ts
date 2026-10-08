@@ -175,6 +175,21 @@ describe('parseNoteContent attribute safety', () => {
     });
   });
 
+  test('returns plain objects that React can pass to Client Components', () => {
+    const parsed = parseNoteContent(everyFeature);
+    const nodesWithAttrs = JSON.stringify(parsed).match(/"attrs"/g) ?? [];
+    expect(nodesWithAttrs.length).toBeGreaterThan(0);
+
+    const prototypes = new Set<unknown>();
+    const visit = (value: unknown) => {
+      if (typeof value !== 'object' || value === null) return;
+      if (!Array.isArray(value)) prototypes.add(Object.getPrototypeOf(value));
+      Object.values(value).forEach(visit);
+    };
+    visit(parsed);
+    expect([...prototypes]).toEqual([Object.prototype]);
+  });
+
   test('keeps headings, marks and structure intact', () => {
     expect(parseNoteContent(everyFeature)).toEqual(
       parseNoteContent(parseNoteContent(everyFeature)),

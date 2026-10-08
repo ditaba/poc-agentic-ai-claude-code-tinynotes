@@ -76,7 +76,8 @@ export function SharePanel({ noteId, initialShareUrl }: SharePanelProps) {
       aria-labelledby={ids.heading}
       className='mt-8 rounded-2xl border border-aqua-100 bg-white p-5 shadow-sm'
     >
-      <div className='flex items-start justify-between gap-4'>
+      {/* Stacked on narrow screens, so the description isn't squeezed by the switch. */}
+      <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
         <div>
           <h2 id={ids.heading} className='font-medium text-aqua-950'>
             Public link
