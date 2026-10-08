@@ -1,26 +1,21 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Light theme only (D12), with the aqua palette from SPEC §11. */
+@theme {
+  --color-aqua-50: #effcfc;
+  --color-aqua-100: #d5f5f6;
+  --color-aqua-200: #b0eaee;
+  --color-aqua-300: #79d9e0;
+  --color-aqua-400: #3cbfca;
+  --color-aqua-500: #20a3b0;
+  --color-aqua-600: #1c8494;
+  --color-aqua-700: #1d6a78;
+  --color-aqua-800: #1f5763;
+  --color-aqua-900: #1e4954;
+  --color-aqua-950: #0e2f38;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
