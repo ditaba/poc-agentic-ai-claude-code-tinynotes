@@ -1,21 +1,21 @@
-import { Database } from 'bun:sqlite';
+import { createClient, type Client } from '@libsql/client';
 import { applySchema } from '@/lib/db-schema';
 
-// An in-memory database with the same pragmas and schema as lib/db.ts.
-export function createTestDb(): Database {
-  const db = new Database(':memory:', { strict: true });
-  db.run('pragma foreign_keys = ON');
-  applySchema(db);
+// A fresh in-memory database with the same schema as the app's.
+export async function createTestDb(): Promise<Client> {
+  const db = createClient({ url: ':memory:' });
+  await applySchema(db);
   return db;
 }
 
 // Tests may insert user rows directly; app code goes through better-auth.
-export function createTestUser(db: Database, name = 'Test User'): { id: string } {
+export async function createTestUser(db: Client, name = 'Test User'): Promise<{ id: string }> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  db.query(
-    `insert into "user" ("id", "name", "email", "emailVerified", "createdAt", "updatedAt")
-     values ($id, $name, $email, 0, $now, $now)`,
-  ).run({ id, name, email: `${id}@example.com`, now });
+  await db.execute({
+    sql: `insert into "user" ("id", "name", "email", "emailVerified", "createdAt", "updatedAt")
+          values ($id, $name, $email, 0, $now, $now)`,
+    args: { id, name, email: `${id}@example.com`, now },
+  });
   return { id };
 }

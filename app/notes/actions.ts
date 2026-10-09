@@ -55,13 +55,7 @@ export async function createNote(input: unknown): Promise<ActionResult> {
   const result = await withAction('createNote', async (context) => {
     const user = await requireActionUser(context);
     const note = parseNoteInput(input);
-    const share = readShareFlag(input);
-    // One transaction, so a note is never left half-created.
-    const id = db.transaction(() => {
-      const created = notes.createNote(db, user.id, note);
-      if (share) notes.enableSharing(db, user.id, created.id);
-      return created.id;
-    })();
+    const { id } = await notes.createNote(db, user.id, note, { shared: readShareFlag(input) });
     return { ok: true, data: { id } };
   });
   if (!result.ok) return result;
@@ -79,7 +73,7 @@ export async function updateNote(
   return withAction('updateNote', async (context) => {
     const user = await requireActionUser(context);
     const noteId = parseNoteId(id, context);
-    const saved = notes.updateNote(db, user.id, noteId, parseNoteInput(input));
+    const saved = await notes.updateNote(db, user.id, noteId, parseNoteInput(input));
     if (!saved) throw new AppError('NOT_FOUND', NOTE_NOT_FOUND);
 
     revalidatePath('/dashboard');
@@ -90,7 +84,7 @@ export async function updateNote(
 export async function enableSharing(id: unknown): Promise<ActionResult<{ shareUrl: string }>> {
   return withAction('enableSharing', async (context) => {
     const user = await requireActionUser(context);
-    const token = notes.enableSharing(db, user.id, parseNoteId(id, context));
+    const token = await notes.enableSharing(db, user.id, parseNoteId(id, context));
     if (!token) throw new AppError('NOT_FOUND', NOTE_NOT_FOUND);
 
     revalidatePath('/dashboard');
@@ -101,7 +95,7 @@ export async function enableSharing(id: unknown): Promise<ActionResult<{ shareUr
 export async function disableSharing(id: unknown): Promise<ActionResult> {
   return withAction('disableSharing', async (context) => {
     const user = await requireActionUser(context);
-    if (!notes.disableSharing(db, user.id, parseNoteId(id, context))) {
+    if (!(await notes.disableSharing(db, user.id, parseNoteId(id, context)))) {
       throw new AppError('NOT_FOUND', NOTE_NOT_FOUND);
     }
 

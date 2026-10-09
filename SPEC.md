@@ -1,6 +1,6 @@
 # TinyNotes — Specification
 
-**Version** 1.1 · 2026-10-05 · **Owner** Di Ta · **Status** Ready for implementation
+**Version** 1.2 · 2026-10-09 · **Owner** Di Ta · **Status** Ready for implementation
 Builds on the existing Next.js 16.1 / React 19.2 / Tailwind 4 scaffold in this repo.
 
 ## 1. Overview
@@ -17,6 +17,7 @@ TinyNotes is a deliberately simple demo app. Users sign up with email and passwo
 - A read-only public page for shared notes
 - Safe error handling
 - A branded 404 page
+- Deployment on Vercel, with the database on Turso Cloud (§8, §12)
 
 **Out of scope:**
 
@@ -27,7 +28,7 @@ TinyNotes is a deliberately simple demo app. Users sign up with email and passwo
 - Real-time collaboration, conflict detection, version history
 - Search, tags, folders, pagination
 - Dark mode, i18n
-- Deployment, analytics, custom rate limiting (better-auth's defaults are enough)
+- Analytics, custom rate limiting (better-auth's defaults are enough)
 
 ## 3. Decisions
 
@@ -36,31 +37,33 @@ TinyNotes is a deliberately simple demo app. Users sign up with email and passwo
 | D1  | Notes have a separate plain-text **title**. An empty title is shown as "Untitled".                                                 |
 | D2  | **Autosave**, debounced, with no Save button (§6.3).                                                                               |
 | D3  | Disabling sharing revokes the link permanently. Re-enabling always creates a **new** link.                                         |
-| D4  | Testing is `bun test` unit tests plus a manual acceptance checklist. No E2E suite.                                                 |
+| D4  | Testing is Vitest unit tests (`bun run test`) plus a manual acceptance checklist. No E2E suite.                                   |
 | D5  | Content is stored **only as TipTap JSON**. HTML is generated on the server and is never stored or accepted from the client.        |
 | D6  | The public page shows the title, content and last-updated date, but **not the author**.                                            |
 | D7  | Our tables use **camelCase** columns, like better-auth's tables, so rows map 1:1 to TS objects.                                    |
 | D8  | Mutations go through **Server Actions**. Auth goes through better-auth's route handler and client SDK. There's no custom REST API. |
 | D9  | Notes are **hard-deleted** after a confirmation.                                                                                   |
 | D10 | **Last write wins** when one note is open in two tabs.                                                                             |
-| D11 | **Bun only**, as package manager, runtime, test runner and script runner. Delete `package-lock.json`.                              |
+| D11 | **Bun only** as package manager and script runner. Next.js and Vitest run on **Node.js**, locally and on Vercel. Delete `package-lock.json`. |
 | D12 | Light theme only, with the **aqua** palette in §11.                                                                                |
 
 ## 4. Tech stack
 
 | Concern                   | Choice                                                                             | Version (pin exactly)      |
 | ------------------------- | ---------------------------------------------------------------------------------- | -------------------------- |
-| Runtime / package manager | Bun                                                                                | ≥ 1.3 (verified on 1.3.12) |
+| Package manager / scripts | Bun                                                                                | ≥ 1.3 (verified on 1.3.12) |
+| Runtime                   | Node.js (also Vercel's default for Functions)                                      | ≥ 22 (verified on 22.16)   |
 | Framework                 | Next.js App Router, TypeScript `strict`                                            | 16.1.1 (installed)         |
 | UI                        | React                                                                              | 19.2.3 (installed)         |
 | Styling                   | Tailwind CSS v4 + `@tailwindcss/typography`                                        | 4.x / 0.5.20               |
 | Rich text                 | `@tiptap/react` `@tiptap/pm` `@tiptap/core` `@tiptap/starter-kit` `@tiptap/html`   | 3.31.4                     |
 | Auth                      | `better-auth` (email + password)                                                   | 1.7.7                      |
-| Database                  | SQLite through the built-in `bun:sqlite`; raw parameterized SQL; custom migrations | —                          |
+| Database                  | Turso Cloud (libSQL) through `@libsql/client`; raw parameterized SQL               | 0.18.0                     |
+| Auth ↔ database           | `@libsql/kysely-libsql`: the Kysely dialect better-auth uses (§9.5)                | 0.4.1                      |
 
 Don't add an ORM, query builder, validation library or UI kit.
 
-> **Next.js must run on the Bun runtime.** `bun:sqlite` only exists inside Bun, and a plain `bun next dev` still runs Next.js on Node. All scripts therefore use `bun --bun next …` (§12). Next.js already treats `bun:*` imports as external ([vercel/next.js#77616](https://github.com/vercel/next.js/pull/77616)), so no bundler config is needed.
+> **Why Turso.** Vercel Functions run on Node.js with a read-only filesystem, so neither `bun:sqlite` nor a local SQLite file works there. Turso keeps the SQLite dialect, so the schema and queries carry over. `@libsql/client` must be ≥ 0.18.0, which fixed transactions wiping `:memory:` databases ([libsql-client-ts#349](https://github.com/tursodatabase/libsql-client-ts/issues/349)). `@libsql/kysely-libsql` asks for `@libsql/client ^0.8.0`, so `package.json` has `"overrides": { "@libsql/client": "0.18.0" }` to keep a single copy. Next.js externalizes `@libsql/client` by default, so no bundler config is needed. Kysely is only better-auth's internal query layer: app code never uses it.
 
 ## 5. Routes
 
@@ -173,21 +176,18 @@ Don't add an ORM, query builder, validation library or UI kit.
 
 ## 8. Database
 
-### 8.1 Connection — `lib/db/index.ts` (`import "server-only"`)
+### 8.1 Connection — `lib/db.ts` (`import "server-only"`)
 
-- Open one `Database` per process: `new Database(process.env.DB_PATH ?? "data/app.db", { create: true, strict: true })`. Cache it on `globalThis` so dev hot reloads don't open extra connections, and create the parent directory if it's missing.
-- Run these PRAGMAs on open: `journal_mode = WAL`, `foreign_keys = ON`, `busy_timeout = 5000`. `foreign_keys` applies per connection and is needed for the cascading deletes.
-- Pass this same instance to better-auth.
+- `lib/db-client.ts` exports `createDbClient()`: `createClient({ url: TURSO_DATABASE_URL || "file:data/app.db", authToken: TURSO_AUTH_TOKEN })`. For a `file:` URL it creates the parent directory first. It isn't `server-only`, so `scripts/migrate.ts` can use it.
+- `lib/db.ts` opens one client per process and caches it on `globalThis`, so dev hot reloads don't open extra connections. Pass this same client to better-auth (§9.5).
+- The URL is `libsql://…` (Turso Cloud) on Vercel, a `file:` URL in local dev, and `:memory:` in tests.
+- No PRAGMAs. libSQL enforces foreign keys by default (verified for local files and `:memory:`; not documented for Turso Cloud). Only the cascades depend on it, and the app never deletes users (§2).
 
-### 8.2 Migrations
+### 8.2 Schema — `lib/db-schema.ts`
 
-- Files are named `migrations/NNNN_description.sql` and applied in filename order. Migrations are forward-only: never edit a file that has already been applied.
-- `lib/db/migrate.ts` exports `runMigrations(db, dir): string[]`, which returns the names of the files it applied. The CLI is `scripts/migrate.ts` (`bun run db:migrate`), and the `dev`/`start` scripts run it automatically.
-- Applied files are tracked in this table:
-  ```sql
-  create table if not exists "_migration" ("name" text not null primary key, "appliedAt" integer not null);
-  ```
-- Each pending file runs in its own `db.transaction` together with its `_migration` insert. `db.exec(sql)` runs every statement in a file (verified on Bun 1.3). If a file fails, the runner rolls it back, logs the file name and error, and exits non-zero.
+- The schema in §8.3–8.4 lives in `lib/db-schema.ts` as `create … if not exists` statements. `applySchema(db)` runs them with `db.executeMultiple`. Every statement is idempotent, so a run that stops halfway is completed by the next one.
+- `bun run db:migrate` (`scripts/migrate.ts`) applies it. The `dev` and `build` scripts run it first, so each Vercel deploy prepares the Turso database before Next builds. Requests never run DDL.
+- Schema changes stay additive (new `create … if not exists` statements). There's no migration table until a change needs one.
 
 ### 8.3 `0001_better_auth.sql` — better-auth core schema
 
@@ -267,13 +267,14 @@ A note is shared exactly when `shareToken IS NOT NULL`. SQLite's `UNIQUE` allows
 
 ### 9.1 Data access — `lib/db/notes.ts`
 
-These are pure functions that take `db` as the first argument and use bound parameters only. **Every owner query includes `"userId" = $userId` in its `WHERE` clause.** Content is `JSON.stringify`'d on write and parsed on read. Callers validate the input.
+These are pure async functions that take `db` as the first argument and use bound parameters only (`db.execute({ sql, args })` with `$name` placeholders). **Every owner query includes `"userId" = $userId` in its `WHERE` clause.** Content is `JSON.stringify`'d on write and parsed on read. Callers validate the input.
 
 ```ts
+// All async; db is the libSQL Client.
 listNotes(db, userId): { id; title; updatedAt; isShared }[]            // no content
 getNote(db, userId, id): Note | null
-createNote(db, userId, { title, content }): Note
-updateNote(db, userId, id, { title, content }): Note | null            // bumps updatedAt
+createNote(db, userId, { title, content }, { shared? }): { id }        // one INSERT, token included
+updateNote(db, userId, id, { title, content }): { updatedAt } | null   // bumps updatedAt
 deleteNote(db, userId, id): boolean
 enableSharing(db, userId, id): string | null                           // existing token if already shared
 disableSharing(db, userId, id): boolean
@@ -340,7 +341,8 @@ The editor wraps it in a thin `useAutosave` hook. On `/notes/new`, the `save` ca
 ```ts
 // lib/auth.ts  (server-only)
 export const auth = betterAuth({
-  database: db, // bun:sqlite instance from lib/db
+  // better-auth has no libSQL adapter but accepts any Kysely dialect; this one reuses lib/db's client.
+  database: { dialect: new LibsqlDialect({ client: db }), type: 'sqlite' },
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
@@ -446,15 +448,17 @@ Define the palette in `app/globals.css` with Tailwind v4 `@theme`. This generate
 | -------------------- | -------- | -------------------------------------------------------------- |
 | `BETTER_AUTH_SECRET` | yes      | ≥ 32 random chars (`openssl rand -base64 32`)                  |
 | `BETTER_AUTH_URL`    | yes      | `http://localhost:3000`; the base URL for auth and share links |
-| `DB_PATH`            | no       | Defaults to `data/app.db`                                      |
+| `TURSO_DATABASE_URL` | no       | Defaults to `file:data/app.db`; `libsql://…` on Vercel         |
+| `TURSO_AUTH_TOKEN`   | on Turso | Set by Vercel's Turso integration; empty for a local file      |
 
 ```json
 "scripts": {
-  "dev":        "bun run db:migrate && bun --bun next dev",
-  "build":      "bun --bun next build",
-  "start":      "bun run db:migrate && bun --bun next start",
+  "dev":        "bun run db:migrate && next dev",
+  "build":      "bun run db:migrate && next build",
+  "start":      "next start",
   "lint":       "eslint",
-  "test":       "bun test",
+  "test":       "vitest run",
+  "test:watch": "vitest",
   "db:migrate": "bun run scripts/migrate.ts"
 }
 ```
@@ -480,21 +484,21 @@ components/
   save-status.tsx  note-content.tsx  share-panel.tsx  delete-note-button.tsx  local-time.tsx
 lib/
   auth.ts  auth-client.ts  session.ts  errors.ts  share-token.ts  autosave.ts
-  db/        index.ts  migrate.ts  notes.ts  test-utils.ts
+  db.ts  db-client.ts  db-schema.ts  notes.ts
   rich-text/ extensions.ts  validate.ts  render.ts
-migrations/  0001_better_auth.sql  0002_note.sql
 scripts/     migrate.ts
+test/        db.ts  setup-db.ts  (shared test helpers)
 ```
 
-Tests sit next to the module they cover (`lib/**/*.test.ts`). Tested modules must not import `"server-only"`, `next/*` or `lib/db/index.ts`.
+Tests sit next to the module they cover (`lib/**/*.test.ts`). Tests run on Node; `vitest.config.mts` aliases `"server-only"` and sets `TURSO_DATABASE_URL=:memory:`.
 
 ## 14. Testing
 
-### 14.1 Unit tests (`bun test`)
+### 14.1 Unit tests (Vitest, `bun run test`)
 
-`lib/db/test-utils.ts` provides `createTestDb()` and `createTestUser(db)`. `createTestDb()` returns an in-memory DB with the PRAGMAs applied and the real migrations run. Autosave tests use short real delays (10–50 ms) rather than fake timers.
+`test/db.ts` provides async `createTestDb()` and `createTestUser(db)`. `createTestDb()` returns a fresh in-memory libSQL DB with the real schema applied. `test/setup-db.ts` applies the schema to the shared `lib/db` client before each test file. Autosave tests use short real delays (10–50 ms) rather than fake timers.
 
-- **Migrations**: a fresh DB gets every migration; a second run applies nothing; a broken file rolls back and stops the run.
+- **Schema**: a fresh DB gets every table; a second run keeps the data; a transaction on `:memory:` keeps the database (#349).
 - **Notes**: CRUD round-trips the content JSON; `updateNote` bumps `updatedAt` but not `createdAt`; the list is sorted and has no content; deleting a user cascades to their notes.
 - **Ownership**: user B's calls on user A's note return `null`/`false` and change nothing.
 - **Sharing**: enable then resolve works; enabling twice returns the same token; disable makes the token resolve to `null`; re-enable gives a **new** token and the old one stays dead; deleting the note kills the token; `updatedAt` is unchanged.
@@ -506,7 +510,7 @@ Tests sit next to the module they cover (`lib/**/*.test.ts`). Tested modules mus
 
 ### 14.2 Manual acceptance checklist
 
-- [ ] Fresh clone: `bun install`, copy `.env.example` → `.env`, `bun dev`. The app runs and the DB is created. On a rerun, no migrations are applied.
+- [ ] Fresh clone: `bun install`, copy `.env.example` → `.env`, `bun dev`. The app runs and `data/app.db` is created. A rerun keeps the data.
 - [ ] Sign up, sign in, sign out and the redirects all work. A duplicate email and a wrong password show the right messages.
 - [ ] On a new note, typing changes the URL to `/notes/<id>/edit` without losing the cursor. An untouched `/notes/new` creates nothing.
 - [ ] The status goes Unsaved → Saving… → Saved about 1 s after typing stops. Reloading keeps everything. Ctrl/Cmd+S saves immediately.
@@ -520,7 +524,8 @@ Tests sit next to the module they cover (`lib/**/*.test.ts`). Tested modules mus
 - [ ] An unknown URL, another user's note and a disabled link all show the same branded 404.
 - [ ] A forced server error shows the generic error page with a reference ID and no stack trace or message, in both `bun run build && bun start` and dev. Action responses in the Network tab contain no internals.
 - [ ] The aqua styling is applied consistently and every page is usable at 360 px.
-- [ ] `bun run lint`, `bun test` and `bun run build` all pass.
+- [ ] `bun run lint`, `bun run test` and `bun run build` all pass.
+- [ ] Vercel: the build log shows "Database schema is up to date.", sign-up and notes work on the production domain, data is still there after a few minutes, and `vercel logs --status-code 500` is empty.
 
 ## 15. Milestones (one PR each)
 
@@ -533,12 +538,14 @@ Tests sit next to the module they cover (`lib/**/*.test.ts`). Tested modules mus
 | M4  | Notes UI: list, view, new/edit with autosave and status, delete, actions                                                                                    | The notes, autosave and ownership checklist items pass.                    |
 | M5  | Share panel, sharing actions, `/s/[token]`                                                                                                                  | The sharing checklist items pass.                                          |
 | M6  | Styling pass, README, scaffold cleanup                                                                                                                      | The full checklist passes.                                                 |
+| M7  | Turso + Vercel: `@libsql/client`, async data layer, `db:migrate` in `build`, Next on Node                                                                  | Tests pass on Node and the Vercel checklist item passes.                   |
 
 ## 16. Risks
 
 | Risk                                                    | Mitigation                                                                                                          |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Next.js on the Bun runtime is less common than on Node. | Prove it in M0 before building anything else. If it's blocked, escalate to the owner; don't switch drivers.         |
+| better-auth has no official libSQL adapter.             | It runs through `@libsql/kysely-libsql`; `lib/auth.test.ts` runs real sign-up and sign-in against libSQL.           |
+| `@libsql/kysely-libsql` lags behind `@libsql/client`.   | Keep the `overrides` entry so there's one client copy; check `bun.lock` after upgrades.                               |
 | better-auth's schema can drift between versions.        | Pin 1.7.7. Regenerate and diff the schema on upgrade (§8.3).                                                        |
 | Stored XSS through shared notes.                        | D5, §9.3 and SEC-3, plus the validation tests.                                                                      |
 | Autosave races and lost edits.                          | Single-flight plus a final save on unmount and when the tab is hidden, `beforeunload`, and the autosave unit tests. |

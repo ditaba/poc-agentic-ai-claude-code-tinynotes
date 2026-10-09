@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Dashboard' };
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const notes = listNotes(db, user.id);
+  const notes = await listNotes(db, user.id);
 
   return (
     <main className='mx-auto w-full max-w-3xl px-4 py-10'>

@@ -10,15 +10,18 @@ vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
 
 const content = { type: 'doc', content: [{ type: 'paragraph' }] };
 
-function addNote(userId: string, title: string, updatedAt: number) {
-  const { id } = notes.createNote(db, userId, { title, content });
-  db.query(`update "note" set "updatedAt" = $updatedAt where "id" = $id`).run({ id, updatedAt });
+async function addNote(userId: string, title: string, updatedAt: number) {
+  const { id } = await notes.createNote(db, userId, { title, content });
+  await db.execute({
+    sql: `update "note" set "updatedAt" = $updatedAt where "id" = $id`,
+    args: { id, updatedAt },
+  });
   return id;
 }
 
 describe('dashboard', () => {
   test('shows an empty state with a link to create the first note', async () => {
-    signInAs(createTestUser(db));
+    signInAs(await createTestUser(db));
 
     const html = await renderPage(DashboardPage());
 
@@ -27,9 +30,9 @@ describe('dashboard', () => {
   });
 
   test("lists the user's notes newest first, each linking to its edit page", async () => {
-    const user = createTestUser(db);
-    const older = addNote(user.id, 'Older', 1_000);
-    const newer = addNote(user.id, 'Newer', 2_000);
+    const user = await createTestUser(db);
+    const older = await addNote(user.id, 'Older', 1_000);
+    const newer = await addNote(user.id, 'Newer', 2_000);
     signInAs(user);
 
     const html = await renderPage(DashboardPage());
@@ -41,10 +44,10 @@ describe('dashboard', () => {
   });
 
   test('marks shared notes and names untitled ones', async () => {
-    const user = createTestUser(db);
-    const shared = addNote(user.id, '', 2_000);
-    addNote(user.id, 'Private', 1_000);
-    notes.enableSharing(db, user.id, shared);
+    const user = await createTestUser(db);
+    const shared = await addNote(user.id, '', 2_000);
+    await addNote(user.id, 'Private', 1_000);
+    await notes.enableSharing(db, user.id, shared);
     signInAs(user);
 
     const html = await renderPage(DashboardPage());
@@ -55,8 +58,8 @@ describe('dashboard', () => {
   });
 
   test("never shows other users' notes", async () => {
-    addNote(createTestUser(db).id, "Someone else's note", 1_000);
-    signInAs(createTestUser(db));
+    await addNote((await createTestUser(db)).id, "Someone else's note", 1_000);
+    signInAs(await createTestUser(db));
 
     expect(await renderPage(DashboardPage())).not.toContain('Someone else');
   });

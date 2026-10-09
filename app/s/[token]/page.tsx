@@ -12,13 +12,13 @@ import { isWellFormedShareToken } from '@/lib/share-token';
 
 // Shared by generateMetadata and the page, so the note is read once per request.
 // Malformed, unknown and revoked tokens all resolve to nothing (PUB-2).
-const getShared = cache((token: string) =>
+const getShared = cache(async (token: string) =>
   isWellFormedShareToken(token) ? getSharedNote(db, token) : null,
 );
 
 export async function generateMetadata({ params }: PageProps<'/s/[token]'>): Promise<Metadata> {
   const { token } = await params;
-  const note = getShared(token);
+  const note = await getShared(token);
   return {
     title: note ? note.title || 'Untitled' : 'Page not found',
     // next.config.ts also sends these as headers (PUB-4).
@@ -32,7 +32,7 @@ export default async function SharedNotePage({ params }: PageProps<'/s/[token]'>
   // Rendered on every request, so a revoked link stops working at once (PUB-3).
   await connection();
   const { token } = await params;
-  const note = getShared(token);
+  const note = await getShared(token);
   if (!note) notFound();
 
   return (

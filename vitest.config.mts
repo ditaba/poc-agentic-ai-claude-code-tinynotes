@@ -1,9 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
-// Run with `bun run test`. The script starts Vitest on the Bun runtime
-// (`bun --bun`), because the data layer uses bun:sqlite. A plain `bun test`
-// starts Bun's own test runner instead.
+// Run with `bun run test`. Vitest runs on Node, like the app. A plain
+// `bun test` starts Bun's own test runner instead.
 export default defineConfig({
   resolve: {
     // Resolves the @/* alias from tsconfig.json.
@@ -17,13 +16,16 @@ export default defineConfig({
       // Component. Next.js swaps in an empty module on the server; tests do too.
       'server-only': fileURLToPath(new URL('./test/server-only.ts', import.meta.url)),
     },
-    // Bun loads .env into process.env, so tests pin their own values. DB_PATH
-    // makes lib/db.ts open an in-memory database: tests never touch data/app.db.
+    // `bun run` loads .env into process.env, so tests pin their own values.
+    // TURSO_DATABASE_URL makes lib/db.ts open an in-memory database: tests never
+    // touch data/app.db or Turso. setup-db.ts creates its tables.
     env: {
       BETTER_AUTH_SECRET: 'test-secret-with-at-least-32-characters',
       BETTER_AUTH_URL: 'http://localhost:3000',
-      DB_PATH: ':memory:',
+      TURSO_DATABASE_URL: ':memory:',
+      TURSO_AUTH_TOKEN: '',
     },
+    setupFiles: ['./test/setup-db.ts'],
     // Every test starts with fresh mocks, spies, env vars and globals.
     mockReset: true,
     restoreMocks: true,

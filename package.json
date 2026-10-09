@@ -3,15 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "bun --bun next dev",
-    "build": "bun --bun next build",
-    "start": "bun --bun next start",
+    "dev": "bun run db:migrate && next dev",
+    "build": "bun run db:migrate && next build",
+    "start": "next start",
     "lint": "eslint",
-    "test": "bun --bun vitest run",
-    "test:watch": "bun --bun vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "bun run scripts/migrate.ts",
     "format": "oxfmt"
   },
   "dependencies": {
+    "@libsql/client": "0.18.0",
+    "@libsql/kysely-libsql": "0.4.1",
     "@tiptap/core": "3.31.4",
     "@tiptap/pm": "3.31.4",
     "@tiptap/react": "3.31.4",
@@ -37,6 +40,9 @@
     "typescript": "^5",
     "vite": "8.3.4",
     "vitest": "5.0.3"
+  },
+  "overrides": {
+    "@libsql/client": "0.18.0"
   },
   "ignoreScripts": [
     "sharp",
