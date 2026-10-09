@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TinyNotes
 
-## Getting Started
+A small notes app: email/password sign-in, rich-text notes that save as you type, and public share links you can revoke. Built with Next.js 16, better-auth and TipTap. The database is libSQL: a local file in development and [Turso](https://turso.tech) in production. See [SPEC.md](SPEC.md) for the full specification.
 
-First, run the development server:
+## Getting started
+
+You need [Bun](https://bun.sh) 1.3+ and Node.js 22+.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+cp .env.example .env    # then set BETTER_AUTH_SECRET (openssl rand -base64 32)
+bun dev                 # creates data/app.db, then starts http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Command              | What it does                                         |
+| -------------------- | ---------------------------------------------------- |
+| `bun dev`            | Applies the schema, then starts the dev server       |
+| `bun run build`      | Applies the schema, then builds for production       |
+| `bun start`          | Serves the production build                          |
+| `bun run test`       | Runs the unit tests (Vitest; not `bun test`)         |
+| `bun run lint`       | Runs ESLint                                          |
+| `bun run db:migrate` | Creates any missing tables at `TURSO_DATABASE_URL`   |
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Import the repo into Vercel. It detects Next.js and Bun on its own.
+2. Add the **Turso** integration from the Vercel Marketplace. It creates a database and sets `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
+3. Set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`. `BETTER_AUTH_URL` is the production URL, such as `https://your-app.vercel.app`. It's also the base of share links.
+4. Scope every variable to **Production**, and to **Preview** too if you use preview deployments. Then redeploy: variable changes only apply to new deployments.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Every build runs `db:migrate` first, so the build log should show `Database schema is up to date.`
+
+Sign-in only works on the domain in `BETTER_AUTH_URL`, because better-auth rejects requests from other origins. Preview URLs show the app but can't sign in.

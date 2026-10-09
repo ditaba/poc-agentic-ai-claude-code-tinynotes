@@ -1,4 +1,4 @@
-import type { Database } from 'bun:sqlite';
+import type { Client } from '@libsql/client';
 
 // user, session, account and verification are better-auth's core tables, in
 // the shape its CLI generates for SQLite. better-auth owns them: app code only
@@ -67,8 +67,9 @@ create table if not exists "note" (
 create index if not exists "note_userId_updatedAt_idx" on "note" ("userId", "updatedAt" desc);
 `;
 
-// Creates any missing tables. Kept out of lib/db.ts (server-only) so tests can
-// build the same schema in memory.
-export function applySchema(db: Database): void {
-  db.transaction(() => db.exec(schema))();
+// Creates any missing tables and indexes. Every statement is idempotent, so a
+// run that stops halfway is completed by the next one. Kept out of lib/db.ts
+// (server-only) so scripts/migrate.ts and the tests can build the same schema.
+export async function applySchema(db: Client): Promise<void> {
+  await db.executeMultiple(schema);
 }

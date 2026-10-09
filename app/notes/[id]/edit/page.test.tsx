@@ -11,9 +11,9 @@ vi.mock('next/navigation', { spy: true });
 
 const content = { type: 'doc', content: [{ type: 'paragraph' }] };
 
-function ownNote(title = 'Plan') {
-  const owner = createTestUser(db);
-  const { id } = notes.createNote(db, owner.id, { title, content });
+async function ownNote(title = 'Plan') {
+  const owner = await createTestUser(db);
+  const { id } = await notes.createNote(db, owner.id, { title, content });
   signInAs(owner);
   return { owner, id };
 }
@@ -22,7 +22,7 @@ const open = (id: string) => renderPage(EditNotePage(pageProps({ id })));
 
 describe('edit note page', () => {
   test('shows the form filled in with the note', async () => {
-    const { id } = ownNote('Groceries');
+    const { id } = await ownNote('Groceries');
 
     const html = await open(id);
 
@@ -33,7 +33,7 @@ describe('edit note page', () => {
   });
 
   test('shows sharing as off for a private note', async () => {
-    const { id } = ownNote();
+    const { id } = await ownNote();
 
     const html = await open(id);
 
@@ -43,8 +43,8 @@ describe('edit note page', () => {
   });
 
   test('shows the public link for a shared note', async () => {
-    const { owner, id } = ownNote();
-    const token = notes.enableSharing(db, owner.id, id);
+    const { owner, id } = await ownNote();
+    const token = await notes.enableSharing(db, owner.id, id);
 
     const html = await open(id);
 
@@ -53,15 +53,15 @@ describe('edit note page', () => {
   });
 
   test('gives unknown ids the 404 page', async () => {
-    ownNote();
+    await ownNote();
     await expect(open('no-such-note')).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404');
   });
 
   test('uses the note title as the page title, or "Untitled"', async () => {
-    expect(await generateMetadata(pageProps({ id: ownNote('Groceries').id }))).toEqual({
+    expect(await generateMetadata(pageProps({ id: (await ownNote('Groceries')).id }))).toEqual({
       title: 'Groceries',
     });
-    expect(await generateMetadata(pageProps({ id: ownNote('').id }))).toEqual({
+    expect(await generateMetadata(pageProps({ id: (await ownNote('')).id }))).toEqual({
       title: 'Untitled',
     });
   });

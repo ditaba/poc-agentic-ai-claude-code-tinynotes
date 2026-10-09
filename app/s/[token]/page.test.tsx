@@ -23,10 +23,10 @@ const content = {
   ],
 };
 
-function shareNote(title = 'Team meeting') {
-  const owner = createTestUser(db, 'Ada Lovelace');
-  const { id } = notes.createNote(db, owner.id, { title, content });
-  const token = notes.enableSharing(db, owner.id, id) ?? '';
+async function shareNote(title = 'Team meeting') {
+  const owner = await createTestUser(db, 'Ada Lovelace');
+  const { id } = await notes.createNote(db, owner.id, { title, content });
+  const token = (await notes.enableSharing(db, owner.id, id)) ?? '';
   return { owner, id, token };
 }
 
@@ -34,7 +34,7 @@ const open = (token: string) => renderPage(SharedNotePage(pageProps({ token })))
 
 describe('shared note page', () => {
   test('shows the title, the last-updated date and the formatted content (PUB-1)', async () => {
-    const { token } = shareNote();
+    const { token } = await shareNote();
 
     const html = await open(token);
 
@@ -44,7 +44,7 @@ describe('shared note page', () => {
   });
 
   test('shows neither the author nor any edit controls (D6)', async () => {
-    const { owner, token } = shareNote();
+    const { owner, token } = await shareNote();
 
     const html = await open(token);
 
@@ -54,31 +54,31 @@ describe('shared note page', () => {
   });
 
   test('invites visitors to sign up', async () => {
-    const html = await open(shareNote().token);
+    const html = await open((await shareNote()).token);
     expect(html).toMatch(/<a[^>]*href="\/auth\?mode=sign-up"[^>]*>Create your own notes<\/a>/);
   });
 
   test('shows "Untitled" for notes without a title', async () => {
-    const { token } = shareNote('');
+    const { token } = await shareNote('');
     expect(await open(token)).toMatch(/<h1[^>]*>Untitled<\/h1>/);
     expect((await generateMetadata(pageProps({ token }))).title).toBe('Untitled');
   });
 
   test('escapes the title', async () => {
-    const { token } = shareNote('<script>alert(1)</script>');
+    const { token } = await shareNote('<script>alert(1)</script>');
     const html = await open(token);
     expect(html).not.toContain('<script>alert(1)');
     expect(html).toContain('&lt;script&gt;');
   });
 
   test('is rendered per request, so a revoked link stops working at once (PUB-3)', async () => {
-    const { owner, id, token } = shareNote();
+    const { owner, id, token } = await shareNote();
     await open(token);
     expect(vi.mocked(connection).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(notes.getSharedNote).mock.invocationCallOrder[0],
     );
 
-    notes.disableSharing(db, owner.id, id);
+    await notes.disableSharing(db, owner.id, id);
     await expect(open(token)).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404');
   });
 
@@ -98,7 +98,7 @@ describe('shared note page', () => {
 
 describe('shared note metadata', () => {
   test('uses the note title and keeps the page private (PUB-4)', async () => {
-    const { token } = shareNote();
+    const { token } = await shareNote();
     expect(await generateMetadata(pageProps({ token }))).toEqual({
       title: 'Team meeting',
       robots: { index: false, follow: false },

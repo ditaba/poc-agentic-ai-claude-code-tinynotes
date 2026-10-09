@@ -13,7 +13,7 @@ import { shareUrlFor } from '@/lib/share-url';
 // it runs once per request. Missing and foreign notes both get the 404 (NOTE-4).
 const getOwnedNote = cache(async (id: string) => {
   const user = await requireUser();
-  const note = getNote(db, user.id, id);
+  const note = await getNote(db, user.id, id);
   if (!note) notFound();
   return note;
 });

@@ -1,3 +1,4 @@
+import type { Client } from '@libsql/client';
 import { describe, expect, test } from 'vitest';
 import {
   createNote,
@@ -15,18 +16,24 @@ const content = {
   content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hi' }] }],
 };
 
+// Sets columns directly, e.g. to push timestamps into the past.
+async function setNote(db: Client, id: string, set: string) {
+  await db.execute({ sql: `update "note" set ${set} where "id" = $id`, args: { id } });
+}
+
 describe('createNote', () => {
-  test('stores the note with its JSON content and timestamps', () => {
-    const db = createTestDb();
-    const user = createTestUser(db);
+  test('stores the note with its JSON content and timestamps', async () => {
+    const db = await createTestDb();
+    const user = await createTestUser(db);
     const before = Date.now();
 
-    const { id } = createNote(db, user.id, { title: 'Groceries', content });
+    const { id } = await createNote(db, user.id, { title: 'Groceries', content });
 
-    const row = db.query(`select * from "note" where "id" = $id`).get({ id }) as Record<
-      string,
-      unknown
-    >;
+    const { rows } = await db.execute({
+      sql: `select * from "note" where "id" = $id`,
+      args: { id },
+    });
+    const row = rows[0];
     expect(row.userId).toBe(user.id);
     expect(row.title).toBe('Groceries');
     expect(JSON.parse(row.content as string)).toEqual(content);
@@ -34,19 +41,30 @@ describe('createNote', () => {
     expect(row.createdAt).toBe(row.updatedAt);
     expect(row.createdAt as number).toBeGreaterThanOrEqual(before);
   });
+
+  test('can share the note right away', async () => {
+    const db = await createTestDb();
+    const user = await createTestUser(db);
+
+    const { id } = await createNote(db, user.id, { title: 'Shared', content }, { shared: true });
+
+    const token = (await getNote(db, user.id, id))?.shareToken ?? '';
+    expect(token).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    expect(await getSharedNote(db, token)).toMatchObject({ title: 'Shared' });
+  });
 });
 
 describe('listNotes', () => {
-  test("returns only the owner's notes, newest first, without content", () => {
-    const db = createTestDb();
-    const ada = createTestUser(db, 'Ada');
-    const bob = createTestUser(db, 'Bob');
-    const older = createNote(db, ada.id, { title: 'Older', content });
-    const newer = createNote(db, ada.id, { title: 'Newer', content });
-    createNote(db, bob.id, { title: "Bob's note", content });
-    db.query(`update "note" set "updatedAt" = 1 where "id" = $id`).run({ id: older.id });
+  test("returns only the owner's notes, newest first, without content", async () => {
+    const db = await createTestDb();
+    const ada = await createTestUser(db, 'Ada');
+    const bob = await createTestUser(db, 'Bob');
+    const older = await createNote(db, ada.id, { title: 'Older', content });
+    const newer = await createNote(db, ada.id, { title: 'Newer', content });
+    await createNote(db, bob.id, { title: "Bob's note", content });
+    await setNote(db, older.id, `"updatedAt" = 1`);
 
-    const notes = listNotes(db, ada.id);
+    const notes = await listNotes(db, ada.id);
 
     expect(notes.map((note) => note.id)).toEqual([newer.id, older.id]);
     expect(notes[0]).toEqual({
@@ -58,13 +76,13 @@ describe('listNotes', () => {
     expect(notes[0]).not.toHaveProperty('content');
   });
 
-  test('marks notes with a share token as shared', () => {
-    const db = createTestDb();
-    const user = createTestUser(db);
-    const { id } = createNote(db, user.id, { title: '', content });
-    db.query(`update "note" set "shareToken" = 'token' where "id" = $id`).run({ id });
+  test('marks notes with a share token as shared', async () => {
+    const db = await createTestDb();
+    const user = await createTestUser(db);
+    const { id } = await createNote(db, user.id, { title: '', content });
+    await setNote(db, id, `"shareToken" = 'token'`);
 
-    expect(listNotes(db, user.id)[0].isShared).toBe(true);
+    expect((await listNotes(db, user.id))[0].isShared).toBe(true);
   });
 });
 
@@ -73,20 +91,20 @@ const edited = {
   content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Edited' }] }],
 };
 
-function setup() {
-  const db = createTestDb();
-  const ada = createTestUser(db, 'Ada');
-  const bob = createTestUser(db, 'Bob');
-  const { id } = createNote(db, ada.id, { title: 'Plan', content });
+async function setup() {
+  const db = await createTestDb();
+  const ada = await createTestUser(db, 'Ada');
+  const bob = await createTestUser(db, 'Bob');
+  const { id } = await createNote(db, ada.id, { title: 'Plan', content });
   // Pushes timestamps into the past, so later writes are visibly newer.
-  db.query(`update "note" set "createdAt" = 1, "updatedAt" = 1 where "id" = $id`).run({ id });
+  await setNote(db, id, `"createdAt" = 1, "updatedAt" = 1`);
   return { db, ada, bob, id };
 }
 
 describe('getNote', () => {
-  test("returns the owner's note with parsed content", () => {
-    const { db, ada, id } = setup();
-    expect(getNote(db, ada.id, id)).toEqual({
+  test("returns the owner's note with parsed content", async () => {
+    const { db, ada, id } = await setup();
+    expect(await getNote(db, ada.id, id)).toEqual({
       id,
       title: 'Plan',
       content,
@@ -96,19 +114,19 @@ describe('getNote', () => {
     });
   });
 
-  test("returns null for another user's note or an unknown id", () => {
-    const { db, ada, bob, id } = setup();
-    expect(getNote(db, bob.id, id)).toBeNull();
-    expect(getNote(db, ada.id, 'no-such-note')).toBeNull();
+  test("returns null for another user's note or an unknown id", async () => {
+    const { db, ada, bob, id } = await setup();
+    expect(await getNote(db, bob.id, id)).toBeNull();
+    expect(await getNote(db, ada.id, 'no-such-note')).toBeNull();
   });
 });
 
 describe('updateNote', () => {
-  test('saves title and content and bumps updatedAt but not createdAt', () => {
-    const { db, ada, id } = setup();
-    const result = updateNote(db, ada.id, id, { title: 'New title', content: edited });
+  test('saves title and content and bumps updatedAt but not createdAt', async () => {
+    const { db, ada, id } = await setup();
+    const result = await updateNote(db, ada.id, id, { title: 'New title', content: edited });
 
-    const note = getNote(db, ada.id, id);
+    const note = await getNote(db, ada.id, id);
     expect(result).toEqual({ updatedAt: note?.updatedAt ?? -1 });
     expect(note?.title).toBe('New title');
     expect(note?.content).toEqual(edited);
@@ -116,59 +134,59 @@ describe('updateNote', () => {
     expect(note?.createdAt).toBe(1);
   });
 
-  test("returns null and changes nothing for another user's note", () => {
-    const { db, ada, bob, id } = setup();
-    expect(updateNote(db, bob.id, id, { title: 'Hijacked', content: edited })).toBeNull();
-    expect(getNote(db, ada.id, id)?.title).toBe('Plan');
+  test("returns null and changes nothing for another user's note", async () => {
+    const { db, ada, bob, id } = await setup();
+    expect(await updateNote(db, bob.id, id, { title: 'Hijacked', content: edited })).toBeNull();
+    expect((await getNote(db, ada.id, id))?.title).toBe('Plan');
   });
 });
 
 describe('sharing', () => {
-  test('enabling creates a token that resolves to the note without owner details', () => {
-    const { db, ada, id } = setup();
-    const token = enableSharing(db, ada.id, id);
+  test('enabling creates a token that resolves to the note without owner details', async () => {
+    const { db, ada, id } = await setup();
+    const token = await enableSharing(db, ada.id, id);
 
     expect(token).toMatch(/^[A-Za-z0-9_-]{32}$/);
-    expect(getSharedNote(db, token ?? '')).toEqual({ title: 'Plan', content, updatedAt: 1 });
+    expect(await getSharedNote(db, token ?? '')).toEqual({ title: 'Plan', content, updatedAt: 1 });
   });
 
-  test('enabling twice keeps the same token', () => {
-    const { db, ada, id } = setup();
-    expect(enableSharing(db, ada.id, id)).toBe(enableSharing(db, ada.id, id));
+  test('enabling twice keeps the same token', async () => {
+    const { db, ada, id } = await setup();
+    expect(await enableSharing(db, ada.id, id)).toBe(await enableSharing(db, ada.id, id));
   });
 
-  test('disabling kills the link, and re-enabling creates a new one', () => {
-    const { db, ada, id } = setup();
-    const first = enableSharing(db, ada.id, id) ?? '';
+  test('disabling kills the link, and re-enabling creates a new one', async () => {
+    const { db, ada, id } = await setup();
+    const first = (await enableSharing(db, ada.id, id)) ?? '';
 
-    expect(disableSharing(db, ada.id, id)).toBe(true);
-    expect(getSharedNote(db, first)).toBeNull();
+    expect(await disableSharing(db, ada.id, id)).toBe(true);
+    expect(await getSharedNote(db, first)).toBeNull();
 
-    const second = enableSharing(db, ada.id, id) ?? '';
+    const second = (await enableSharing(db, ada.id, id)) ?? '';
     expect(second).not.toBe(first);
-    expect(getSharedNote(db, second)).not.toBeNull();
-    expect(getSharedNote(db, first)).toBeNull();
+    expect(await getSharedNote(db, second)).not.toBeNull();
+    expect(await getSharedNote(db, first)).toBeNull();
   });
 
-  test("sharing changes don't touch updatedAt", () => {
-    const { db, ada, id } = setup();
-    enableSharing(db, ada.id, id);
-    disableSharing(db, ada.id, id);
-    expect(getNote(db, ada.id, id)?.updatedAt).toBe(1);
+  test("sharing changes don't touch updatedAt", async () => {
+    const { db, ada, id } = await setup();
+    await enableSharing(db, ada.id, id);
+    await disableSharing(db, ada.id, id);
+    expect((await getNote(db, ada.id, id))?.updatedAt).toBe(1);
   });
 
-  test("other users can't enable or disable sharing", () => {
-    const { db, ada, bob, id } = setup();
-    expect(enableSharing(db, bob.id, id)).toBeNull();
-    expect(getNote(db, ada.id, id)?.shareToken).toBeNull();
+  test("other users can't enable or disable sharing", async () => {
+    const { db, ada, bob, id } = await setup();
+    expect(await enableSharing(db, bob.id, id)).toBeNull();
+    expect((await getNote(db, ada.id, id))?.shareToken).toBeNull();
 
-    const token = enableSharing(db, ada.id, id) ?? '';
-    expect(disableSharing(db, bob.id, id)).toBe(false);
-    expect(getSharedNote(db, token)).not.toBeNull();
+    const token = (await enableSharing(db, ada.id, id)) ?? '';
+    expect(await disableSharing(db, bob.id, id)).toBe(false);
+    expect(await getSharedNote(db, token)).not.toBeNull();
   });
 
-  test('unknown tokens resolve to nothing', () => {
-    const { db } = setup();
-    expect(getSharedNote(db, 'a'.repeat(32))).toBeNull();
+  test('unknown tokens resolve to nothing', async () => {
+    const { db } = await setup();
+    expect(await getSharedNote(db, 'a'.repeat(32))).toBeNull();
   });
 });

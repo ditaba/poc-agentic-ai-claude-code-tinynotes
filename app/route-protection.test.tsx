@@ -48,9 +48,9 @@ describe('signed-out visitors', () => {
   });
 
   test('can open a public link', async () => {
-    const owner = createTestUser(db);
-    const { id } = notes.createNote(db, owner.id, { title: 'Shared plan', content });
-    const token = notes.enableSharing(db, owner.id, id) ?? '';
+    const owner = await createTestUser(db);
+    const { id } = await notes.createNote(db, owner.id, { title: 'Shared plan', content });
+    const token = (await notes.enableSharing(db, owner.id, id)) ?? '';
     signInAs(null);
 
     const html = await renderPage(SharedNotePage(pageProps({ token })));
@@ -65,28 +65,28 @@ describe('signed-in visitors', () => {
     ['/', () => HomePage()],
     ['/auth', () => AuthPage(pageProps({}))],
   ])('are sent from %s to /dashboard', async (_route, open) => {
-    signInAs(createTestUser(db));
+    signInAs(await createTestUser(db));
     await expect(open()).rejects.toThrow('NEXT_REDIRECT');
     expect(redirect).toHaveBeenCalledWith('/dashboard');
   });
 
   test('can open the dashboard and the new note page', async () => {
-    signInAs(createTestUser(db));
+    signInAs(await createTestUser(db));
     await renderPage(DashboardPage());
     await renderPage(NewNotePage());
     expect(redirect).not.toHaveBeenCalled();
   });
 
   test('are sent from /notes/[id] to the edit page', async () => {
-    signInAs(createTestUser(db));
+    signInAs(await createTestUser(db));
     await expect(NotePage(pageProps({ id: 'n1' }))).rejects.toThrow('NEXT_REDIRECT');
     expect(redirect).toHaveBeenCalledWith('/notes/n1/edit');
   });
 
   test("get the 404 page, never a 403, for another user's note (NOTE-4)", async () => {
-    const owner = createTestUser(db);
-    const { id } = notes.createNote(db, owner.id, { title: 'Private', content });
-    signInAs(createTestUser(db));
+    const owner = await createTestUser(db);
+    const { id } = await notes.createNote(db, owner.id, { title: 'Private', content });
+    signInAs(await createTestUser(db));
 
     await expect(EditNotePage(pageProps({ id }))).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404');
     await expect(generateEditMetadata(pageProps({ id }))).rejects.toThrow(
